@@ -1,0 +1,2665 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from fpdf import FPDF
+import os
+import requests
+import datetime
+import tabula
+from datetime import timedelta
+file_loc = 'D:/alb_files/'
+i = 0
+pdf = FPDF('L', 'mm', 'A4')
+pdf.set_font('Arial', 'B', 16)
+P_RGN_TIME = pd.DataFrame(columns=['pending_RGN_TIME(mins)'])
+P_Cum_Cons = pd.DataFrame(columns=['pending_rgn_cons'])
+summary = pd.DataFrame(columns=['vname', 'kmcov', 'fuelcons', 'kmpl', 'adblue/fuelcons'])
+active=pd.DataFrame(columns=['active'])
+inactive=pd.DataFrame(columns=['inactive'])
+for file in os.listdir(file_loc):
+    try:
+        pdf = FPDF('L', 'mm', 'A4')
+        pdf.set_font('Arial', 'B', 16)
+        file = '{}'.format(file)
+        vname = 0
+        tveh = ['P30', 'P24', 'M42', 'M31', 'P23', 'P29', 'P31']
+        deviceid = ['14750fc6-07ea-4fc1-9243-c635042c204f', '311a8f45-6d04-4bc1-a3d4-4670d7affba6',
+                    'ba937f95-5d31-45ae-b6f7-8d99001b3289', 'b5120138-64dd-451f-b861-1bc11a8aaf17',
+                    'a5a72039-c25a-4146-b2ec-b14dec4460d6', 'eddf8e42-cb39-4881-9678-a83c9014f150',
+                    '125d2bff-8396-4f92-9683-167238cfbccc']
+        while i < 7:
+            wveh = file.find(tveh[i])
+            if wveh > -1:
+                tveh = ['P30', 'P24', 'M42', 'M31', 'P23', 'P29', 'P31']
+                app = ['3520_8x4_Tipper', '2820_HAULAGE', '2820_6X4_TIPPER', '3520_8X4_TIPPER', '4020_HAULAGE',
+                       'VIKING_BUS', 'VIKING_BUS']
+                vname = tveh[i]
+                deviceid = deviceid[i]
+                app = app[i]
+            i = i + 1
+
+        i = 0
+        data = pd.read_csv(file_loc + file, compression='gzip')
+        sln = len(data.Eng_Speed)
+        data[['SL']] = pd.DataFrame({'SL': np.arange(sln)})
+
+        cmode = data[['P_T_Comb_mode']].dropna()
+
+        # wveh = file.find(tveh[i])
+        # if wveh > -1:
+        # data = data.rename(columns={'Eng_Speed': 'engineSpeed'})
+
+        # fin_cols = [col for col in data.columns if 'ActMod_trqCrS_f' in col]
+        # lfin=len(fin_cols)
+        wveh = file.find('P31')
+        if wveh < 0:
+            wveh = file.find('P29')
+        if wveh < 0:
+            wveh = file.find('P24')
+        if wveh > -1:
+            # if lfin > 0:
+            data = data.rename(columns={'ActMod_trqCrS_f': 'CoPT_trqDesClth_f'})
+
+        # wveh = file.find('P31')
+        if wveh > -1:
+            data = data.rename(columns={'P_L_Cds_rbm_exh_gas_sens_den_nvv': 'IN_Exh_gas_density'})
+
+        # wveh = file.find('P31')
+        if wveh > -1:
+            data = data.rename(columns={'IN_Dpf_dp': 'IN_Dpf_dp_filt'})
+
+        # wveh = file.find('P31')
+        if wveh > -1:
+            data = data.rename(columns={'CEngDsT_t': 'IN_Coolant_temperature'})
+
+        # wveh = file.find('P31')
+        if wveh > -1:
+            data = data.rename(columns={'Ambient_air_Temp': 'TSE_Ambient_air_temp'})
+
+        Total_Time = len(cmode) / 3600
+        lagmod = round(((((len(data[(data['P_T_Comb_mode'] == 9)])) / 3600) / Total_Time) * 100), 1)
+        lrgnmod = round(((((len(data[(data['P_T_Comb_mode'] == 11)])) / 3600) / Total_Time) * 100), 1)
+        lnrmmod = round((((len(data[(data['P_T_Comb_mode'] == 0)]) / 3600) / Total_Time) * 100), 1)
+        lmodmod = round(
+            (((len(data[(data['P_T_Comb_mode'] > 20) & (data['P_T_Comb_mode'] < 23)]) / 3600) / Total_Time) * 100), 1)
+
+        #
+        # dIN_Nox_concentration = data[['IN_Nox_concentration']][(data.IN_Nox_concentration > 0) & (data.IN_Nox_concentration < 3000)]
+        # dIN_Nox_concentration = pd.Series(dIN_Nox_concentration.IN_Nox_concentration)
+        # avg_IN_Nox_concentration = round(dIN_Nox_concentration.mean(), 1)
+        # dIN_Nox_tailpipe_concentration = data[['IN_Nox_tailpipe_concentration']][(data.IN_Nox_tailpipe_concentration > 0) & (data.IN_Nox_tailpipe_concentration < 3000)]
+        # dIN_Nox_tailpipe_concentration = pd.Series(dIN_Nox_tailpipe_concentration.IN_Nox_tailpipe_concentration)
+        # avg_IN_Nox_tailpipe_concentration = round(dIN_Nox_tailpipe_concentration.mean(), 1)
+
+        dIN_Nox_concentration = data[['IN_Nox_concentration']]
+        dIN_Nox_concentration = pd.Series(dIN_Nox_concentration.IN_Nox_concentration)
+        avg_IN_Nox_concentration = round(dIN_Nox_concentration.mean(), 1)
+        dIN_Nox_tailpipe_concentration = data[['IN_Nox_tailpipe_concentration']]
+        dIN_Nox_tailpipe_concentration = pd.Series(dIN_Nox_tailpipe_concentration.IN_Nox_tailpipe_concentration)
+        avg_IN_Nox_tailpipe_concentration = round(dIN_Nox_tailpipe_concentration.mean(), 1)
+
+        avg_SO_Con_Eff = (((1 - (avg_IN_Nox_tailpipe_concentration / avg_IN_Nox_concentration)) * 100))
+        avg_SO_Con_Eff = round(avg_SO_Con_Eff, 1)
+        plt.clf()
+        labels = 'Normal_Mode', 'SCR_Mode', 'Regen_Mode'
+        sizes = [lnrmmod, lagmod, lrgnmod, lmodmod]
+        my_circle = plt.Circle((0, 0), 0.5, color='white')
+        d = plt.pie(sizes, autopct='%1.0f%%',
+                    startangle=90, labeldistance=0.8, pctdistance=0.8)
+
+        plt.axis('equal')
+        plt.gca().add_artist(my_circle)
+        plt.legend((['Normal_Mode', 'Aggressive_Mode', 'Regen_Mode', 'Moderate_mode']), loc='upper right')
+        plt.savefig('pie.jpg')
+        # plt.clf()
+        espd = data[['Eng_Speed']][data.InjCtl_qSetUnBal > 0]
+        espd = pd.Series(espd.Eng_Speed)
+        InjCtl_qSetUnBal = data[['InjCtl_qSetUnBal']][data.InjCtl_qSetUnBal > 0]
+        InjCtl_qSetUnBal = pd.Series(InjCtl_qSetUnBal.InjCtl_qSetUnBal)
+        fuelcons = ((espd * 6) / (2 * 60)) * (InjCtl_qSetUnBal / (1000000 * 0.85))
+        fuelcons = fuelcons.sum()
+        date_data = data[['TimestampLocal']]
+        timestamp = data._get_value(sln - 500, 'TimestampLocal')
+        start_date = timestamp[0:10]
+        print(vname)
+        vehiclekm = pd.Series(data.WheelBased_Vehicle_Speed, name='vspd')
+        km_cov = ((vehiclekm) / 3600).sum()
+        km_cov = round(km_cov, 1)
+        fuel = data[['Eng_Total_Fuel_Used']][data.Eng_Total_Fuel_Used > 0]
+        ecufuel = pd.Series(fuel.Eng_Total_Fuel_Used)
+        ecufuel = ecufuel.max() - ecufuel.min()
+        kmpl1 = km_cov / ecufuel
+        kmpl1 = round(kmpl1, 1)
+        def_cons = pd.Series(data.P_T_Scr_upc_mfr_urea_act)
+        def_cons = (((def_cons / 3600) / 1320).sum())
+        def_cons = round(def_cons, 1)
+        adblue_per = round(((def_cons / fuelcons) * 100), 1)
+
+        print(fuelcons, ecufuel)
+        fuelcons = round(fuelcons, 1)
+        # Page1
+        pdf.set_margins(0, 0, 210)
+        pdf.set_font('Arial', 'B', 16)
+        pdf.set_auto_page_break(0, margin=210)
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.set_text_color(47, 79, 79)
+        pdf.cell(115, 10, 'H6 2V ALBONAIR ON ROAD VEHICLE PERFORMANCE', 0, 1, 'C')
+        pdf.set_xy(0, 0)
+        # fill rect color
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(260, 24)
+        pdf.cell(25, 5, 'Date:' + '{}'.format(start_date), 0, 1, 'C')
+        pdf.set_xy(10, 24)
+        pdf.cell(25, 5, 'Vehicle:' + '{}'.format(vname), 0, 1, 'C')
+        # pdf.cell(25, 5, 'Vehicle:M10', 0, 1, 'C')
+        pdf.set_fill_color(192, 192, 192)
+        pdf.set_xy(30, 36)
+        pdf.cell(40, 25, '', 0, 1, 'C', True)
+        pdf.set_xy(80, 36)
+        pdf.cell(40, 25, '', 0, 1, 'C', True)
+        pdf.set_xy(130, 36)
+        pdf.cell(40, 25, '', 0, 1, 'C', True)
+        pdf.set_xy(180, 36)
+        pdf.cell(40, 25, '', 0, 1, 'C', True)
+        pdf.set_xy(230, 36)
+        pdf.cell(40, 25, '', 0, 1, 'C', True)
+        pdf.set_xy(42, 36)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(15, 10, 'Distance covered', 0, 1, 'C')
+        pdf.set_xy(92, 36)
+        pdf.cell(15, 10, 'Fuel consumption', 0, 1, 'C')
+        pdf.set_xy(142, 36)
+        pdf.cell(15, 10, 'Trip mileage', 0, 1, 'C')
+        pdf.set_xy(190, 36)
+        pdf.cell(20, 10, 'Adblue cons', 0, 1, 'C')
+        pdf.set_xy(240, 36)
+        pdf.cell(20, 10, 'Adblue / fuel', 0, 1, 'C')
+
+        pdf.set_xy(42, 47)
+        pdf.set_font_size(22)
+        pdf.set_text_color(188, 143, 143)
+        pdf.cell(15, 10, '{}'.format(km_cov), 0, 1, 'C')
+        pdf.set_xy(92, 47)
+        if vname == 'TEST_BED_19':
+            pdf.cell(15, 10, '{}'.format(fuelcons), 0, 1, 'C')
+        if vname != 'TEST_BED_19':
+            pdf.cell(15, 10, '{}'.format(ecufuel), 0, 1, 'C')
+        pdf.set_xy(143, 47)
+        pdf.cell(15, 10, '{}'.format(kmpl1), 0, 1, 'C')
+        pdf.set_xy(193, 47)
+        pdf.cell(15, 10, '{}'.format(def_cons), 0, 1, 'C')
+        pdf.set_xy(242, 47)
+        pdf.cell(15, 10, '{}'.format(adblue_per), 0, 1, 'C')
+        pdf.set_font_size(12)
+        pdf.set_xy(60, 47)
+        pdf.cell(10, 10, 'km', 0, 1, 'C')
+        pdf.set_xy(108, 47)
+        pdf.cell(10, 10, 'lit', 0, 1, 'C')
+        pdf.set_xy(205, 47)
+        pdf.cell(10, 10, 'lit', 0, 1, 'C')
+        pdf.set_xy(255, 47)
+        pdf.cell(10, 10, '%', 0, 1, 'C')
+        pdf.set_xy(0, 0)
+        pdf.image('pie.jpg', 0, 70, 150, 120)
+
+        plt.clf()
+        pdf.set_xy(0, 0)
+        pdf.set_text_color(255, 99, 71)
+        pdf.set_font_size(16)
+        pdf.set_font('Times')
+
+        v_data = 0
+        vehicle_ran = len(data[['IgnitionStatus']][(data.Eng_Speed > 400)])
+        tele_data = len(data[['Eng_Speed']][(data.Eng_Speed > 100)])
+
+        if tele_data or vehicle_ran != 0:
+            v_data = (1 - (tele_data / vehicle_ran)) * 100
+            v_data = round(v_data, 1)
+        if v_data < 0 and vehicle_ran > 0:
+            v_data = 0
+
+        a_data = len(data[['IN_Isp_p_air_cmp']][(data.IN_Isp_p_air_cmp > 0)])
+        if a_data and vehicle_ran != 0:
+            alb_data = (a_data / vehicle_ran)
+        else:
+            alb_data = 0
+
+        dosdat = data[['P_T_Scr_drc_rls_state']]
+        cnt = 0
+        j = 0
+        n_dos_rls = 0
+        ign = data[['IgnitionStatus']]
+        dos_espeed = data[['Eng_Speed']]
+        dos_state_rls = data[['P_T_Scr_drc_rls_state']]
+        dos_rls = pd.DataFrame()
+        idos = 0
+        if alb_data > .5:
+            for value in data.IN_Isp_p_air_cmp:
+                if j < len(dos_state_rls):
+                    if ign.iat[j, 0] < 1:
+                        cnt = 0
+                        j = j + 1
+                if j < len(dos_state_rls):
+                    if ign.iat[j, 0] > 0:
+                        j = j + 1
+                        if (j + 1) < len(dos_espeed):
+                            if dos_espeed.iat[j, 0] > 400:
+                                if dos_state_rls.iat[j, 0] > 0 and dos_state_rls.iat[j, 0] < 31:
+                                    cnt = cnt + 1
+                                    if dosdat.iat[j + 1, 0] == 31:
+                                        dos_rls = dos_rls.append({'Time_dos_rls': cnt / 60}, ignore_index=True)
+                                        n_dos_rls = n_dos_rls + 1
+                                        idos = 1
+        if idos > 0:
+            A_Time_Dos = dos_rls.Time_dos_rls.mean()
+            A_Time_Dos = round(A_Time_Dos, 1)
+            M_Time_Dos = dos_rls.Time_dos_rls.max()
+            M_Time_Dos = round(M_Time_Dos, 1)
+            N_dos_rls = n_dos_rls
+            N_dos_rls = round(N_dos_rls, 1)
+        if idos < 1:
+            A_Time_Dos = 0
+            M_Time_Dos = 0
+            N_dos_rls = 0
+
+        pdf.set_xy(170, 130)
+        pdf.cell(15, 10, 'Data Loss  - ' + '{}'.format(v_data) + '%')
+
+        vspeed = data[['WheelBased_Vehicle_Speed']][data.Eng_Speed > 100]
+        avg_vspd = vspeed.WheelBased_Vehicle_Speed.mean()
+        avg_vspd = round(avg_vspd, 1)
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_xy(170, 120)
+        pdf.cell(15, 10, 'Avg Trip Speed  - ' + '{}'.format(avg_vspd) + ' km/h')
+        espeed = data[['Eng_Speed']][data.Eng_Speed > 100]
+        espeed = round(len(espeed) / 3600, 1)
+        pdf.set_xy(170, 110)
+        pdf.cell(15, 10, 'Trip Eng Hrs - ' + '{}'.format(espeed))
+        pdf.set_xy(170, 100)
+        pdf.cell(15, 10, 'Vehicle Model - ' + '{}'.format(app))
+
+
+        # page2
+        def annotate(fig):
+            for fig in fig:
+                height = fig.get_height()
+                height = height.round(1)
+                plt.annotate('{}'.format(height),
+                             xy=(fig.get_x() + fig.get_width() / 2, height),
+                             xytext=(0, 0),  # 3 points vertical offset
+                             textcoords="offset points",
+                             ha='center', va='bottom', fontsize=7)
+
+
+        def annotate1(fig):
+            for fig in fig:
+                height = fig.get_height()
+                height = height.round(2)
+                plt.annotate('{}'.format(height),
+                             xy=(fig.get_x() + fig.get_width() / 2, height),
+                             xytext=(0, 0),  # 3 points vertical offset
+                             textcoords="offset points",
+                             ha='center', va='bottom', fontsize=7)
+
+
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pdf.set_font('Arial', 'B')
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.cell(115, 10, 'ENGINE SPEED AND TORQUE HISTOGRAM', 0, 1, 'C')
+        fig = plt.subplot2grid((2, 1), (0, 0))
+        engine_speed = data[['Eng_Speed']][data.Eng_Speed > 0]
+        engine_speed = pd.Series(engine_speed.Eng_Speed)
+        engine_speed.dropna(inplace=True)
+        time = len(engine_speed)
+        hist = np.histogram(engine_speed, bins=[600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400, 2600])
+        y = (pd.Series(hist[0]) / time) * 100
+        x = pd.Series(
+            ['600-800', '800-1000', '1000-1200', '1200-1400', '1400-1600', '1600-1800', '1800-2000', '2000-2200',
+             '2200-2400', '2400-2600'])
+        fig1 = plt.bar(x, y, 0.5, color='blue')
+        y = (y.max() + 10)
+        plt.ylim(0, y)
+        annotate(fig1)
+        plt.tight_layout()
+        plt.xticks(rotation=30)
+        plt.title('Engine Speed Histogram', color='blue')
+        plt.ylabel('% Of Time')
+        plt.grid(alpha=0.2, linestyle='--', axis='y')
+        # Engine torque histogram
+        # trq = data[['actualEngPercentTorque']][data.Eng_Speed > 0]
+        # trq1 = data[['nominalFrictionPercentTorque']][data.Eng_Speed > 0]
+        # trq = pd.Series(trq.actualEngPercentTorque)
+        # trq1 = pd.Series(trq1.nominalFrictionPercentTorque)
+        trq = data[['CoPT_trqDesClth_f']].dropna()
+        torque = pd.Series(trq.CoPT_trqDesClth_f)
+        # eng_trq=data['TRInjCtl_qSetUnBal']-data['TRQFRIC']
+        # eng_trq.dropna(inplace=True)
+        time = len(torque)
+        hist = np.histogram(torque, bins=(-100, 0, 100, 200, 300, 400, 500, 600, 700, 800))
+        y = pd.Series((hist[0] / time) * 100)
+        x = pd.Series(
+            ['-100-0', '0-100', '100-200', '200-300', '300-400', '400-500', '500-600', '600-700', '700-800'])
+        fig2 = plt.subplot2grid((2, 1), (1, 0))
+        fig2 = plt.bar(x, y, 0.5, color='blueviolet')
+        y = (y.max() + 10)
+        plt.ylim(0, y)
+        plt.xticks(rotation=30)
+        plt.title('Engine Torque Histogram', color='blueviolet')
+        plt.grid(alpha=0.2, linestyle='--', axis='y')
+        plt.subplots_adjust(hspace=1)
+        plt.ylabel('% Of Time')
+        annotate(fig2)
+        plt.tight_layout()
+        plt.savefig('spd_trq.jpg')
+        pdf.image('spd_trq.jpg', 50, 35, 200, 150)
+
+        plt.clf()
+        # page3
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.set_font('Arial', 'B')
+        pdf.cell(115, 10, 'ENGINE SPEED AND TORQUE SCATTER', 0, 1, 'C')
+        engine_speed = data[['Eng_Speed']][data.Eng_Speed > 0]
+        # trq = data[['actualEngPercentTorque']][data.Eng_Speed > 0]
+        # trq1 = data[['nominalFrictionPercentTorque']][data.Eng_Speed > 0]
+        # trq = pd.Series(trq.actualEngPercentTorque)
+        # trq1 = pd.Series(trq1.nominalFrictionPercentTorque)
+        # torque = ((trq - trq1) / 100) * 950
+        trq = data[['CoPT_trqDesClth_f']][data.Eng_Speed > 0]
+        torque = pd.Series(trq.CoPT_trqDesClth_f)
+        plt.scatter(engine_speed, torque, s=4, marker='8', color='mediumblue')
+        plt.ylim(0, 800)
+        plt.yticks([100, 200, 300, 400, 500, 600, 700, 800])
+        plt.grid(alpha=0.2, linestyle='--')
+        plt.xlabel('Engine Speed')
+        plt.ylabel('Engine Torque', labelpad=-1)
+        plt.xlim(500, 2700)
+        plt.savefig('ETS.jpg')
+        pdf.image('ETS.jpg', 50, 35, 200, 150)
+        plt.clf()
+
+        # page4
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.set_font('Arial', 'B')
+        pdf.cell(115, 10, 'VEHICLE SPEED HISTOGRAM', 0, 1, 'C')
+        v_speed = data[['WheelBased_Vehicle_Speed']]
+        espd = data[['Eng_Speed']]
+        ax15 = plt.subplot2grid((2, 1), (0, 0))
+        plt.scatter(v_speed, espd, s=4, marker='8', color='mediumblue')
+        plt.xlabel('Vehicle_Speed')
+        plt.ylabel('Engine Speed', labelpad=-1)
+
+        plt.ylim(0, 3000)
+        ax16 = plt.subplot2grid((2, 1), (1, 0))
+        # ax16.set_figwidth(15)
+        vspd1 = data[['WheelBased_Vehicle_Speed']][data.Eng_Speed > 0]
+        vspd1 = pd.Series(vspd1.WheelBased_Vehicle_Speed)
+        time = len(vspd1)
+        hist16 = np.histogram(vspd1, bins=[0, 10, 20, 30, 40, 50, 60, 70, 80, 90])
+        y = pd.Series((hist16[0] / time) * 100)
+        x = [0, 10, 20, 30, 40, 50, 60, 70, 80]
+        fig166 = plt.bar(x, y, color='darkslateblue', width=5)
+        plt.xticks((0, 10, 20, 30, 40, 50, 60, 70, 80),
+                   ('0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60-70', '70-80', '80-90'))
+        plt.xlabel('vehicle speed (km/h)')
+        plt.ylabel('% Of Time')
+        y = (y.max() + 10)
+        plt.ylim(0, y)
+
+        annotate(fig166)
+        plt.savefig('VSH.jpg')
+        pdf.image('VSH.jpg', 50, 35, 200, 150)
+        plt.clf()
+
+        # page5
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.set_font('Arial', 'B')
+        pdf.cell(115, 10, 'EGR AND BOOST PRESSURE', 0, 1, 'C')
+        egract = data[['EGRVlv_rAct']].dropna()
+        egract = pd.Series(egract.EGRVlv_rAct)
+        # espd = data[['Eng_Speed']]
+
+        # plt.scatter(v_speed, espd, s=4, marker='8', color='mediumblue')
+        # plt.xlabel('Vehicle_Speed')
+        # plt.ylabel('Engine Speed', labelpad=-1)
+
+        # plt.ylim(0, 3000)
+        ax15 = plt.subplot2grid((2, 1), (0, 0))
+        # ax16.set_figwidth(15)
+        time = len(egract)
+        hist16 = np.histogram(egract, bins=[-20, -10, 0, 10, 20, 30, 40, 50, 90])
+        y = pd.Series((hist16[0] / time) * 100)
+        x = [0, 10, 20, 30, 40, 50, 60, 70]
+        fig166 = plt.bar(x, y, color='darkslateblue', width=5)
+        plt.xticks((0, 10, 20, 30, 40, 50, 60, 70),
+                   ('-20 - -10', '-10 - 0', '0-10', '10-20', '20-30', '30-40', '40-50', '50-90'))
+        plt.xlabel('EGRVlv_rAct (%)')
+        plt.ylabel('% Of Time')
+        y = (y.max() + 10)
+        plt.ylim(0, y)
+        annotate(fig166)
+
+        boostpr = data[['Air_pIntkVUs']].dropna()
+        boostpr = pd.Series(boostpr.Air_pIntkVUs)
+        ax16 = plt.subplot2grid((2, 1), (1, 0))
+        time = len(boostpr)
+        hist17 = np.histogram(boostpr, bins=[0, 500, 1000, 1500, 2000, 2500, 3000])
+        y = pd.Series((hist17[0] / time) * 100)
+        x = [0, 10, 20, 30, 40, 50]
+        fig167 = plt.bar(x, y, color='darkslateblue', width=5)
+        plt.xticks((0, 10, 20, 30, 40, 50),
+                   ('0 - 500', '500-1000', '1000-1500', '1500-2000', '2000-2500', '2500-3000'))
+        plt.xlabel('Boost_Pr (hpa)')
+        plt.ylabel('% Of Time')
+        y = (y.max() + 10)
+        plt.ylim(0, y)
+        annotate(fig167)
+        plt.savefig('EGR.jpg')
+        pdf.image('EGR.jpg', 50, 35, 200, 150)
+        plt.clf()
+
+        # PAGE3
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.cell(115, 10, 'EATS TEMPERATURE AND SOOT LOAD TREND', 0, 1, 'C')
+        # Doc in histogram
+        doc_in = data[['IN_Doc_in_temp']].dropna()
+        hist = np.histogram(doc_in, bins=(200, 250, 300, 350, 400, 450, 500, 550))
+        time = len(doc_in)
+        x = np.arange(7)
+        y = pd.Series((hist[0] / time) * 100)
+        y1 = y.max()
+        fig1 = plt.subplot2grid((3, 1), (2, 0))
+        fig11 = plt.bar(x, y, 0.25, color='blue')
+        # DOC OUT
+        doc_out = data[['IN_Dpf_in_temp']].dropna()
+        hist = np.histogram(doc_out, bins=(200, 250, 300, 350, 400, 450, 500, 550))
+        time = len(doc_out)
+        x1 = x + 0.3
+        y = pd.Series((hist[0] / time) * 100)
+        y2 = y.max()
+        fig22 = plt.bar(x1, y, 0.25, color='red')
+        # #DPFOUT
+        # x2 = x1 + 0.3
+        # dpf_out = data[['THAEX2']].dropna()
+        # time = len(dpf_out)
+        # hist = np.histogram(dpf_out, bins=(180, 200, 300, 350, 400, 450, 500, 550))
+        # y = pd.Series((hist[0] / time) * 100)
+        # y3 = y.max()
+        # fig33 = plt.bar(x2, y, 0.25, color='purple')
+        plt.xticks((0.3, 1.3, 2.3, 3.3, 4.3, 5.3, 6.3),
+                   ('200-250', '250-300', '300-350', '350-400', '400-450', '450-500', '500-550'))
+        annotate(fig11)
+        annotate(fig22)
+        # annotate(fig33)
+
+        ymax = pd.Series([y1, y2])
+        ymax = (ymax.max()) + 20
+        plt.ylim(0, ymax)
+        plt.legend(['DOC IN', 'DPF IN'])
+        # plt.title('EATS Temperatures')
+        plt.ylabel('% Of Time')
+        plt.xlabel('Temperature in °C')
+        plt.grid(alpha=0.2, linestyle='--', axis='y')
+        fig16 = plt.subplot2grid((3, 1), (1, 0))
+        dpf_in = data[['IN_Dpf_in_temp']]
+        doc_in = data[['IN_Doc_in_temp']]
+        slll = data[['SL']]
+        plt.plot(slll, doc_in, color='blue')
+        plt.plot(slll, dpf_in, color='red')
+        # plt.xlabel('Time in sec')
+        plt.ylabel('Temperature in °C')
+        plt.yticks([0, 100, 300, 500])
+        plt.xticks(visible=False)
+
+        fig10 = plt.subplot2grid((3, 1), (0, 0), sharex=fig16)
+        dpsoot = pd.Series(data.P_T_Dpf_dp_soot_mass)
+        modelsoot = pd.Series(data.P_T_Dpf_model_soot_mass_nvv)
+        plt.plot(slll, dpsoot, c='dodgerblue')
+        plt.ylabel('Deltapr_Soot(g)', c='dodgerblue')
+        plt.yticks(c='dodgerblue')
+        plt.xticks(visible=False)
+        fig15 = fig10.twinx()
+        plt.plot(modelsoot, c='chocolate')
+        plt.ylabel('model soot (g)', color='chocolate')
+        plt.yticks(c='chocolate')
+        fig10.xaxis.tick_top()
+
+        plt.subplots_adjust(hspace=0, right=0.9)
+
+        # plt.subplots_adjust
+        # plt.show()
+        plt.savefig('ats.jpg')
+        pdf.image('ats.jpg', 50, 35, 200, 150)
+        plt.clf()
+        # page4
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.cell(115, 10, 'EXHAUST VOLUME FLOW VS DPF DELTA PRESSURE', 0, 1, 'C')
+        figpg3 = plt.figure()
+
+        dpfbed = data[['TSE_Dpf_bed_temp']].fillna(0)
+        exhvol = data[['IN_Exh_vol_flow']].fillna(0)
+        den = data[['IN_Exh_gas_density']].fillna(0)
+        den = pd.Series(den.IN_Exh_gas_density)
+        exhvol = pd.Series(exhvol.IN_Exh_vol_flow)
+        dpfbed = pd.Series(dpfbed.TSE_Dpf_bed_temp)
+        data1 = pd.read_csv('viscos.csv')
+        x = pd.Series(data1.dpfbed)
+        y = pd.Series(data1.vis)
+        fac1 = []
+        dvisc = []
+        i = 0
+
+        while i < len(dpfbed):
+            x_new = dpfbed.iloc[i]
+            y_new = np.interp(x_new, x, y)
+            evol = exhvol.iloc[i]
+            eden = den.iloc[i]
+            dvisc = dvisc + [y_new]
+            fac1 = fac1 + [(180 * y_new * evol) + (27 * eden * ((evol * evol) / 1000000))]
+            i = i + 1
+        i = 0
+        eden = pd.Series(den)
+        fac1 = pd.Series(fac1)
+        dvisc = pd.Series(dvisc)
+        tmp = exhvol * dvisc
+        tmp = tmp.fillna(0)
+        cind = (fac1 * (0.0018002986907958984)) / tmp
+        cind = pd.Series(cind)
+        cind = cind.fillna(0)
+        dp5ind = cind + 0.5
+        dp8ind = cind + 0.766
+        dp5 = (dp5ind / 0.0018002986907958984) * tmp
+        dp5 = pd.Series(dp5)
+        dp5 = dp5.fillna(0)
+        dp8 = (dp8ind / 0.0018002986907958984) * tmp
+        dp8 = pd.Series(dp8)
+        dp8 = dp8.fillna(0)
+        exhvol = data[['IN_Exh_vol_flow']].fillna(0)
+        exhvol = pd.Series(exhvol.IN_Exh_vol_flow)
+        IN_Dpf_dp_filt = data[['IN_Dpf_dp_filt']].fillna(0)
+        IN_Dpf_dp_filt = pd.Series(IN_Dpf_dp_filt.IN_Dpf_dp_filt)
+        soot_index = data[['P_T_Dpf_soot_load_index_nvv']].fillna(0)
+        soot_index = pd.Series(soot_index.P_T_Dpf_soot_load_index_nvv)
+        sidp = (soot_index / 0.0018002986907958984) * tmp
+        sidp = sidp + fac1
+        sidp = pd.Series(sidp)
+        sidp = sidp.fillna(0)
+        plt.scatter(exhvol, sidp, c='black', s=10, marker='8')
+        plt.scatter(exhvol, fac1, c='green', s=8, marker='d')
+        plt.scatter(exhvol, dp5, c='blue', s=8, alpha=0.5)
+        plt.scatter(exhvol, dp8, c='red', s=8, alpha=0.5)
+        xx = [-5, 80, 80, -5, -5, 80, 80]
+        yy = [0, 0, 0, 0, 1, 1, 1]
+        plt.fill_between(xx, yy, color='r', alpha=0.5)
+        plt.legend(['Soot_index_based_act_dp', 'clean_dp', '5gpl', '8gpl'])
+        plt.ylabel('DPF_Differential_Pr (kpa)')
+        plt.xlabel('Exhaust_Volume_Flow (l/s)')
+        plt.grid(alpha=0.2, linestyle='--')
+        plt.savefig('exdel.jpg')
+        pdf.image('exdel.jpg', 60, 35, 200, 150)
+
+        # 7th_page
+        #
+        # # RGN Fuel and Time
+        # gpmrgn = data[['GPMRGN']].dropna()
+        # dpfmod = data[['DPFMOD']].dropna()
+        # gpmcal = data[['GPMCAL']].dropna()
+        i = j = 0
+
+        # wveh = file.find('P31')
+        print('wveh')
+        print(wveh)
+        if wveh < 1:
+            rgnrqst = round(pd.Series(data.P_T_Dpf_regen_request).max(), 1)
+            hcacc = data[['P_T_Hcd_keycycle_mass_dosed']].dropna()
+            hcmax = round(pd.Series(data.P_T_Hcd_keycycle_mass_dosed).max(), 1)
+            print('hcmax')
+            print(hcmax)
+            hc_cons = 0
+            Comb_mode = data[['P_T_Comb_mode']].dropna()
+            RGN_TIME = pd.DataFrame(columns=['RGN_TIME'])
+            Cum_Cons = pd.DataFrame(columns=['rgn_cons'])
+            tsrgn = data[['P_T_Dpf_chk_time_since_rgn_nvv']]
+            # mdata=round(pd.Series(data.SL).max(), 1)
+            mdata = len(tsrgn)
+            # mdata=round(pd.Series())
+            mdata = mdata - 100
+            print('mdata')
+            print(mdata)
+            start_rgn = end_rgn = 0
+            rgnrqst1 = data[['P_T_Dpf_regen_request']].dropna()
+            if rgnrqst > 0:
+                for value in rgnrqst1.P_T_Dpf_regen_request:
+                    i = i + 1
+                    if (value > 0) and j < 1:
+                        j = j + 1
+                        start_rgn = slll.iat[i, 0]
+                        break
+                    if i > mdata and j < 1:
+                        j = j + 1
+                        start_rgn = slll.iat[i, 0]
+                        break
+
+            i = j = 0
+
+            if start_rgn > 0:
+
+                hc_cons = round(pd.Series(data.P_T_Hcd_keycycle_mass_dosed).max(), 1)
+                hc_cons = (hc_cons / 1000) * 0.85
+                hc_cons = round(hc_cons, 2)
+                print(hc_cons)
+                for value in tsrgn.P_T_Dpf_chk_time_since_rgn_nvv:
+                    i = i + 1
+                    if (value < 1000) and (value > 0) and j < 1:
+                        j = j + 1
+                        end_rgn = slll.iat[i, 0]
+                        # rtime = (end_rgn - start_rgn) / 60
+                        # rtime = round(rtime, 1)
+                        break
+                    # print(i)
+                    # print(j)
+                    if i > mdata and j < 1:
+                        print('yes')
+                        j = j + 1
+                        end_rgn = slll.iat[i, 0]
+                        # rtime=(end_rgn-start_rgn)/60
+                        # rtime = round(rtime, 1)
+                        break
+            print('start')
+            print(start_rgn)
+            print(end_rgn)
+            #         c_nspeed = ((nspeed.iat[j, 0]) / (2 * 60 * 1000000))
+            #         lit = (qadf.iat[j, 0]) * c_nspeed
+            #         hc_cons = hc_cons + lit
+            #         ldpfmod = len(dpfmod) - 11
+            #         diff = ldpfmod - j
+            #         if diff == 0 or diff < 0:
+            #             i = i / 60
+            #             i = round(i, 2)
+            #             hc_cons = round(hc_cons, 2)
+            #             P_RGN_TIME = P_RGN_TIME.append({'pending_RGN_TIME(mins)': i}, ignore_index=True)
+            #             P_Cum_Cons = P_Cum_Cons.append({'pending_rgn_cons': hc_cons}, ignore_index=True)
+            #             break
+            #         a = gpmcal.iat[j + 10, 0]
+            #         if a > 0 and a < 0.4 and gpmrgn.iat[j, 0] > 1.15:
+            #             RGN_TIME = RGN_TIME.append({'RGN_TIME': i}, ignore_index=True)
+            #             Cum_Cons = Cum_Cons.append({'rgn_cons': hc_cons}, ignore_index=True)
+            #             hc_cons = 0
+            #             i = 0
+            #             j = j + 10
+            #     j = j + 1
+            # if i < 1:
+            #     P_RGN_TIME = P_RGN_TIME.append({'pending_RGN_TIME(mins)': 0}, ignore_index=True)
+            #     P_Cum_Cons = P_Cum_Cons.append({'pending_rgn_cons': 0}, ignore_index=True)
+            # j = 0
+            # i = 0
+            # k = 0
+            # RGN_TIME = RGN_TIME[['RGN_TIME']][RGN_TIME.RGN_TIME > 1] / 60
+            # RGN_TIME = RGN_TIME.astype(float)
+            # RGN_TIME = RGN_TIME.round(1)
+            #
+            # P_Cum_Cons = P_Cum_Cons.astype(float)
+            # P_Cum_Cons = P_Cum_Cons.round(1)
+            # p_cum = P_Cum_Cons.max()
+            #
+            # i = 0
+            # j = 0
+            # k = i + 250
+            # end_rgn = 0
+            # start_rgn = 0
+            # soot = pd.Series(data.aft1DieselPfSootLoadPercent)
+            # soot_gpl = ((soot / 100) * (1.2)) + 0.3
+            # soot_gpl = pd.DataFrame(soot_gpl)
+            # data[['soot_gpl']] = soot_gpl
+            # mod = data[['DPFMOD']]
+            # sll = data[['SL']]
+            # n = 0
+            # c = 'c.png'
+            # num = 0
+            # for value in data.aft1DieselPfSootLoadPercent:
+            #     aa = 'abcdefghijklmnopqrstuvwxyx'
+            #     aa = aa[n] + c
+            #     n = n + 1
+            #     if (i + 2) > len(soot_gpl):
+            #         break
+            #     a = soot_gpl.iat[i, 0]
+            #     b = mod.iat[i, 0]
+            #     if k + 100 > len(soot_gpl):
+            #         k = k - 300
+            #     cc = soot_gpl.iat[k, 0]
+            #     if a > 1.2 and j < 1 and b > 0 and b < 39:
+            #         start_rgn = sll.iat[i, 0]
+            #         j = 1
+            #
+            #     if j > 0 and a < 0.4 and a > 0.25 and cc < 0.5 and cc > 0.25:
+            #
+            #         end_rgn = sll.iat[i, 0]
+            #         j = 0
+            #         end_rgn = end_rgn + 500
+            #         if end_rgn > len(soot_gpl):
+            #             end_rgn = end_rgn + 1
+            #     # if start_rgn > 0 and (i + 50) > len(soot_gpl):
+            #     #     end_rgn = data.SL.max()
+            #
+            #     i = i + 1
+            #     k = k + 1
+            #
+            #     if n == 25:
+            #         n = 0
+            #
+            print('start_rgn')
+            print(start_rgn)
+
+            print('end_rgn')
+            print(end_rgn)
+
+            if (start_rgn > 0) and (end_rgn > 1):
+                #
+                #
+                # start_rgn = start_rgn - 100
+                # end_rgn=end_rgn+500
+
+                # startrgn1 = start_rgn - 50
+                # startrgn2 = start_rgn - 15
+                # endrgn1 = end_rgn - 50
+                # endrgn2 = end_rgn - 15
+
+                rbtime1 = data[['P_T_Dpf_chk_time_since_rgn_nvv']]
+                # print('rbtime')
+                # print(rbtime1)
+                rbtime = rbtime1.P_T_Dpf_chk_time_since_rgn_nvv.max()
+                rbtime = round(rbtime / 3600, 1)
+                # rbtime=end_rgn
+                print(rbtime)
+
+                ax1 = plt.subplot2grid((3, 1), (2, 0), rowspan=1, colspan=1)
+                combmode = data[['P_T_Comb_mode']][(data.SL > start_rgn) & (data.SL < end_rgn)]
+                combmode1 = combmode[combmode == 11].dropna()
+                rtime = round(len(combmode1) / 60, 1)
+                hcacc = data[['P_T_Hcd_keycycle_mass_dosed']][(data.SL > start_rgn) & (data.SL < end_rgn)]
+                sl = data[['SL']][(data.SL > start_rgn) & (data.SL < end_rgn)]
+                plt.plot(sl, combmode, color='magenta')
+                plt.xlabel('Time_In_Sec')
+                plt.ylim(0, 50)
+                plt.ylabel('Comb_Mode', color='magenta')
+                # plt.legend(['DPFMOD'], fontsize=8)
+                plt.yticks(color='magenta', fontsize=8)
+                plt.grid(alpha=0.5, linestyle='--')
+                ax11 = ax1.twinx()
+                ax11.plot(sl, hcacc, color='green', alpha=0.5)
+
+                plt.ylim(0, hcmax)
+                plt.ylabel('HC_Dosed', color='green', fontsize=9)
+                plt.yticks(color='green', fontsize=8)
+                # plt.legend(['HC_Dosing'],fontsize=8)
+                # plt.ylim(0, 150)
+
+                ax2 = plt.subplot2grid((3, 1), (1, 0), rowspan=1, colspan=1, sharex=ax1)
+                IN_Dpf_in_temp = data[['IN_Dpf_in_temp']][(data.SL > start_rgn) & (data.SL < end_rgn)]
+                IN_Doc_in_temp = data[['IN_Doc_in_temp']][(data.SL > start_rgn) & (data.SL < end_rgn)]
+                regnt = data[['P_T_Dpf_rgn_start_cond_state_nvv']][(data.SL > start_rgn) & (data.SL < end_rgn)].dropna()
+                regnt = pd.Series(regnt.P_T_Dpf_rgn_start_cond_state_nvv).max()
+                print('regnt')
+                print(regnt)
+                rtype = '-'
+                if regnt == 7:
+                    rtype = 'Timer Based'
+                if regnt == 4:
+                    rtype = 'Soot Based'
+                if regnt == 5:
+                    rtype = 'Soot Based'
+                max_atstemp = pd.Series([IN_Doc_in_temp.IN_Doc_in_temp.max(), IN_Dpf_in_temp.IN_Dpf_in_temp.max()])
+                max_atstemp = round(max_atstemp.max(), 1)
+
+                plt.subplots_adjust(hspace=0)
+                plt.plot(sl, IN_Doc_in_temp, c='blue')
+                plt.plot(sl, IN_Dpf_in_temp, c='red')
+                # plt.plot(sl, thaex2, c='deepskyblue')
+
+                plt.yticks([150, 300, 450, 600], color='red', fontsize=8)
+                plt.ylim(100, 700)
+                plt.grid(alpha=0.5, linestyle='--')
+                plt.legend(['DOC_In', 'DOC_Out'], fontsize=8)
+                plt.ylabel('EATS_Temperatures', fontsize=9, color='red')
+                plt.xticks(visible=False)
+                ax2 = plt.subplot2grid((3, 1), (0, 0), rowspan=1, colspan=1, sharex=ax1)
+                plt.subplots_adjust(hspace=0)
+                msoot = data[['P_T_Dpf_model_soot_mass_nvv']][(data.SL > start_rgn) & (data.SL < end_rgn)]
+                dpsoot = data[['P_T_Dpf_dp_soot_mass']][(data.SL > start_rgn) & (data.SL < end_rgn)]
+                plt.plot(sl, msoot)
+                plt.plot(sl, dpsoot)
+                dpsootload_max = round(pd.Series(data.P_T_Dpf_dp_soot_mass).max(), 1)
+                msootload_max = round(pd.Series(data.P_T_Dpf_model_soot_mass_nvv).max(), 1)
+
+                if (dpsootload_max>20) or (msootload_max>20):
+                    plt.yticks([0,10,15,25,30,35,45])
+                if (dpsootload_max < 20) or (msootload_max < 20):
+                    plt.yticks([0,5,10,15,20,25])
+                # plt.ylim(0, 2)
+                plt.grid(alpha=0.5, linestyle='--')
+                plt.xticks(visible=False)
+                # plt.title('REGENEARTION_SUMMARY')
+                plt.ylabel('Soot_Load', fontsize=8)
+                plt.legend(['Model_soot', 'Dp_soot'], fontsize=8)
+                plt.yticks(fontsize=8)
+                plt.savefig('rgn.jpg')
+                plt.clf()
+                end_rgn = 0
+                start_rgn = 0
+                # Add page
+                pdf.add_page()
+                pdf.set_xy(0, 0)
+                pdf.image('allogo.jpg', 0, 0, 50, 20)
+                pdf.set_fill_color(105, 105, 105)
+                pdf.set_xy(0, 21)
+                pdf.cell(297, 10, '', 0, 1, 'C', True)
+                pdf.set_xy(0, 203)
+                pdf.cell(297, 7, '', 0, 1, 'C', True)
+                pdf.set_text_color(255, 255, 255)
+                pdf.set_font_size(12)
+                pdf.set_xy(275, 204)
+                pno = pdf.page_no()
+                pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+                pdf.set_text_color(47, 79, 79)
+                pdf.set_xy(100, 10)
+                pdf.set_font_size(18)
+                pdf.cell(115, 10, 'REGENERATION SUMMARY', 0, 1, 'C')
+                pdf.set_xy(10, 10)
+                pdf.image('rgn.jpg', 50, 35, 210, 155)
+
+                pdf.set_xy(200, 35)
+                pdf.set_text_color(139, 0, 139)
+                pdf.set_font_size(12)
+                pdf.cell(60, 15, '', 1)
+                pdf.set_xy(200, 35)
+                pdf.cell(20, 10, 'Regen Time in mins : ' + '{}'.format(rtime))
+                pdf.set_xy(200, 40)
+                pdf.cell(20, 10, 'Regen Fuel Cons in lit : ' + '{}'.format(hc_cons))
+                pdf.set_xy(15, 185)
+                pdf.set_text_color(139, 0, 139)
+                pdf.set_font_size(12)
+                pdf.cell(90, 10, 'Regen Maximum ATS temperature ' + '{}'.format(max_atstemp) + '°C', 1)
+                pdf.set_xy(15, 35)
+                pdf.set_text_color(139, 0, 139)
+                pdf.set_font_size(12)
+                pdf.cell(90, 10, 'Regen Type -  ' + '{}'.format(rtype))
+                pdf.set_xy(15, 40)
+                pdf.cell(90, 10, 'Time lapsed since last regen ' + '{}'.format(rbtime) + ' hrs')
+                pdf.set_xy(15, 35)
+                pdf.cell(90, 15, '', 1)
+
+        # xxxxxxxxxxxx
+        # os.remove('C:/Users/kaliraj.r/PycharmProjects/pythonProject/rgn.jpg' + aa)
+
+        #         if len(RGN_TIME) > 1:
+        #             rtime = RGN_TIME.iloc[num]
+        #
+        #             rtime = rtime.max()
+        #         if len(RGN_TIME) < 2 and len(RGN_TIME) > 0:
+        #             rtime = RGN_TIME.iat[num, 0]
+        #
+        #         if len(RGN_TIME) == 0:
+        #             rtime = 'NA'
+        #
+        #         pdf.set_xy(200, 40)
+        #         pdf.set_text_color(139, 0, 139)
+        #         pdf.set_font_size(12)
+        #         pdf.cell(20, 10, 'Regen Time in mins : ' + '{}'.format(rtime))
+        #
+        #         if len(Cum_Cons) > 1:
+        #             rfuel = Cum_Cons.iat[num, 0]
+        #             rfuel = round((rfuel.max()), 2)
+        #         if len(Cum_Cons) < 2 and len(Cum_Cons) > 0:
+        #             rfuel = Cum_Cons.iat[num, 0]
+        #             rfuel = round((rfuel.max()), 2)
+        #         # if (len(Cum_Cons)-len(P_Cum_Cons))==2 and len(p_cum)>0:
+        #         #     rfuel = round((P_Cum_Cons.max()),1)
+        #
+        #         if len(RGN_TIME) == 0:
+        #             rfuel = 'NA'
+        #
+        #         pdf.set_xy(200, 35)
+        #         pdf.cell(20, 10, 'Regen Fuel Cons in lit : ' + '{}'.format(rfuel))
+        #         num = num + 1
+        #
+        #         pdf.set_xy(200, 35)
+        #         pdf.cell(60, 15, '', 1)
+        #
+        #         pdf.set_xy(15, 185)
+        #         pdf.set_text_color(139, 0, 139)
+        #         pdf.set_font_size(12)
+        #         pdf.cell(90, 10, 'Regen Maximum ATS temperature ' + '{}'.format(max_atstemp) + '°C', 1)
+
+        # PAGE8
+        plt.clf()
+        tscr = data[['TSE_Scr_bed_temp']].dropna()
+        time = len(tscr)
+        hist = np.histogram(tscr, bins=[1, 180, 200, 300, 400, 500, 600, 650])
+        y = pd.Series(hist[0] / time) * 100
+        x = [1, 2, 3, 4, 5, 6, 7]
+        ax1 = plt.subplot2grid((2, 1), (0, 0))
+        ax2 = plt.bar(x, y, 0.5, color='indigo')
+        plt.xticks((1, 2, 3, 4, 5, 6, 7), ('<180', '180-200', '200-300', '300-400', '400-500', '500-600', '600-650'))
+        plt.ylabel('% Of Time')
+        plt.xlabel('Temperature in °C')
+        plt.title('SCR BED TEMPERATURE HISTOGRAM')
+        annotate(ax2)
+        y = y.max() + 10
+        plt.ylim(0, y)
+
+        ax2 = plt.subplot2grid((2, 1), (1, 0))
+        x = data[['IN_Nox_concentration']]
+        y = data[['IN_Nox_tailpipe_concentration']]
+        plt.plot(x, c='blue')
+        plt.plot(y, c='red')
+        # plt.ylim(0, 2000)
+        plt.grid(alpha=0.2, linestyle='--')
+        plt.ylabel('NOx(ppm)')
+        plt.xlabel('Time')
+        plt.legend(['NOx in ppm', 'NOx out ppm'])
+        plt.title('SCR_CONVERSION')
+        plt.subplots_adjust(hspace=0.7)
+        plt.savefig('scr.jpg')
+
+        # pdf.add_page()
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.cell(115, 10, 'SCR SUMMARY', 0, 1, 'C')
+        pdf.image('scr.jpg', 60, 35, 200, 150)
+        plt.clf()
+
+        pdf.set_xy(215, 30)
+        pdf.set_text_color(139, 0, 139)
+        pdf.set_font_size(12)
+        pdf.cell(20, 10, 'Avg EO NOx - ' + '{}'.format(avg_IN_Nox_concentration) + ' ppm')
+        pdf.set_xy(215, 35)
+        pdf.cell(20, 10, 'Avg SO NOx - ' + '{}'.format(avg_IN_Nox_tailpipe_concentration) + ' ppm')
+        pdf.set_xy(215, 40)
+        pdf.cell(20, 10, 'Avg SO Con Eff - ' + '{}'.format(avg_SO_Con_Eff) + ' %')
+
+        pdf.set_xy(215, 32)
+        pdf.cell(55, 16, '', 1)
+
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(105, 105, 105)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 10, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(100, 10)
+        pdf.set_font_size(18)
+        pdf.cell(115, 10, 'UDS SUMMARY', 0, 1, 'C')
+        airpr = data[['IN_Isp_p_air_cmp']]
+        ureapr = data[['IN_Isp_p_urea']]
+        rls = data[['P_T_Scr_drc_rls_state']]
+        scrmt = data[['TSE_Scr_bed_temp']]
+        ax1 = plt.subplot2grid((2, 1), (0, 0))
+        plt.plot(airpr, color='black')
+        plt.plot(ureapr, color='blue')
+        plt.ylabel('pressure in mbar')
+        plt.legend(['air_pr', 'urea_pr'])
+
+        ax1 = plt.subplot2grid((2, 1), (1, 0))
+        plt.plot(rls, color='olivedrab')
+        plt.ylabel('Dosing_Release_State', color='olivedrab')
+        plt.yticks(color='olivedrab')
+        plt.subplots_adjust(hspace=0.5)
+        ax23 = ax1.twinx()
+        plt.plot(scrmt, c='mediumvioletred')
+        plt.ylabel('SCR Mean temperature', c='mediumvioletred')
+        plt.yticks(c='mediumvioletred')
+        plt.savefig('UDS.jpg')
+        pdf.image('UDS.jpg', 60, 35, 200, 150)
+        plt.clf()
+        pdf.set_xy(215, 30)
+        pdf.set_text_color(139, 0, 139)
+        pdf.set_font_size(12)
+        pdf.cell(20, 10, 'Number Of Dosing rls - ' + '{}'.format(N_dos_rls))
+        pdf.set_xy(215, 35)
+        pdf.cell(20, 10, 'Avg Time Taken for rls - ' + '{}'.format(A_Time_Dos) + ' mins')
+        pdf.set_xy(215, 40)
+        pdf.cell(20, 10, 'Max Time Taken for rls -  ' + '{}'.format(M_Time_Dos) + ' mins')
+        pdf.set_xy(215, 32)
+        pdf.cell(75, 16, '', 1)
+
+        # page09
+        # pdf.add_page()
+        # pdf.set_xy(0, 0)
+        # pdf.image('allogo.jpg', 0, 0, 50, 20)
+        # pdf.set_fill_color(105, 105, 105)
+        # pdf.set_xy(0, 21)
+        # pdf.cell(297, 10, '', 0, 1, 'C', True)
+        # pdf.set_xy(0, 203)
+        # pdf.cell(297, 7, '', 0, 1, 'C', True)
+        # pdf.set_text_color(255, 255, 255)
+        # pdf.set_font_size(12)
+        # pdf.set_xy(275, 204)
+        # pno = pdf.page_no()
+        # pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        # pdf.set_text_color(47, 79, 79)
+        # pdf.set_xy(100, 10)
+        # pdf.set_font_size(18)
+        # pdf.cell(115, 10, 'BOOST PRESSURE AND EGR ', 0, 1, 'C')
+        # legr = pd.Series(data.LEGR)
+        # legrbas = pd.Series(data.legrbas)
+        # pim = pd.Series(data.pim)
+        # dev=legrbas-legr
+        # adev=dev.mean()
+        #
+        # hist = np.histogram((dev),bins=(-20,-15,-10,-5,0,5,10,15,20,30))
+        # y=hist[0]
+        # time=len(dev)
+        # sl=data[['SL']]
+        # y=pd.Series((y/time)*100)
+        #
+        # ax1110 = plt.subplot2grid((2, 1), (0, 0))
+        qlim = data[['SmkLim_qLimSmk']].dropna()
+        qlim = pd.Series(qlim.SmkLim_qLimSmk)
+        injqty = data[['InjCtl_qSetUnBal']].dropna()
+        injqty = pd.Series(injqty.InjCtl_qSetUnBal)
+        diff = injqty - qlim
+        hist2 = np.histogram((diff), bins=(-1, 1))
+        time1 = len(qlim)
+        smkper = (hist2[0] / time1) * 100
+        smkper = round((smkper.max()), 1)
+        # x=[0,1,2,3,4,5,6,7,8]
+        # ax13=plt.bar(x, y, 0.5, color='midnightblue')
+        # y = (y.max() + 10)
+        # plt.ylim(0, y)
+        # plt.xticks((0,1,2,3,4,5,6,7,8),('-20 - -15','-15 - -10','-10 - - 5','-5 - 0','0 - 5','5 - 10','10 - 15','15 - 20','20 - 30'))
+        # plt.xlabel('Deviation')
+        # plt.xticks(rotation=30)
+        # plt.ylabel('% Of Time')
+        # plt.title('LEGRBAS - LEGR')
+        # annotate(ax13)
+        #
+        #
+        # qbsmf = pd.Series(data.QBSMF)
+        # InjCtl_qSetUnBal = pd.Series(data.InjCtl_qSetUnBal)
+        # smklim=InjCtl_qSetUnBal-qbsmf
+        # time1 = len(smklim)
+        # hist2=np.histogram((smklim),bins=(-1,1))
+        # smkper=(hist2[0]/time1)*100
+        # smkper=round((smkper.max()),1)
+        # ax1 = plt.subplot2grid((2, 1), (1, 0))
+        # hist1=np.histogram((pim),bins=(0,100,150,200,250,300))
+        # time=len(pim)
+        # y=pd.Series((hist1[0]/time)*100)
+        # x=[0,1,2,3,4]
+        # ax12=plt.bar(x,y,0.5, color='slateblue')
+        # y = (y.max() + 10)
+        # plt.ylim(0, y)
+        # plt.xticks((0,1,2,3,4),['0-100','100-150','150-200','200-250','250-300'])
+        # plt.ylabel('% of Time')
+        # plt.xlabel('Boost Pressure (kpa)')
+        #
+        # annotate(ax12)
+        # plt.subplots_adjust(hspace=0.5)
+        # plt.savefig('boost.png')
+        # pdf.image('boost.png', 60, 35, 200, 150)
+        # plt.clf()
+
+        # page10
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(85, 85, 85)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 8, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(80, 8)
+        pdf.set_font_size(18)
+
+        # min ,max,avg
+        pdf.cell(115, 8, 'TRIP MIN_MAX_AVG', 0, 1, 'C')
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font_size(8)
+        pdf.set_xy(115, 30)
+        pdf.set_fill_color(240, 128, 128)
+        pdf.cell(30, 7, 'Minimum', 1, 1, 'C', True)
+        pdf.set_xy(145, 30)
+        pdf.cell(30, 7, 'Maximum', 1, 1, 'C', True)
+        pdf.set_xy(175, 30)
+        pdf.cell(30, 7, 'Average', 1, 1, 'C', True)
+        pdf.set_xy(70, 37)
+        pdf.cell(45, 7, 'DOC In Temperature', 1, 1, 'C')
+        pdf.set_xy(70, 44)
+        pdf.cell(45, 7, 'DPF In Temperature', 1, 1, 'C')
+        pdf.set_xy(70, 51)
+        pdf.cell(45, 7, 'SCR bed Temperature', 1, 1, 'C')
+        pdf.set_xy(70, 58)
+        pdf.cell(45, 7, 'MBSLE (g)', 1, 1, 'C')
+        pdf.set_xy(70, 65)
+        pdf.cell(45, 7, 'DPSLE (g)', 1, 1, 'C')
+        pdf.set_xy(70, 72)
+        pdf.cell(45, 7, 'TimeSinceRegen (Hrs)', 1, 1, 'C')
+        pdf.set_xy(70, 79)
+        pdf.cell(45, 7, 'Engine speed', 1, 1, 'C')
+        pdf.set_xy(70, 86)
+        pdf.cell(45, 7, 'Engine_speed >3000 (mins)', 1, 1, 'C')
+        pdf.set_xy(70, 93)
+        pdf.cell(45, 7, 'Coolant_Temp(°C)', 1, 1, 'C')
+        pdf.set_xy(70, 100)
+        pdf.cell(45, 7, 'Urea Level(%)', 1, 1, 'C')
+        pdf.set_xy(70, 107)
+        pdf.cell(45, 7, 'Urea_Temp(°C)', 1, 1, 'C')
+        pdf.set_xy(70, 114)
+        pdf.cell(45, 7, 'Ambient(°C)', 1, 1, 'C')
+        pdf.set_xy(70, 121)
+        pdf.cell(45, 7, 'Exh_Flow(l/s)', 1, 1, 'C')
+        pdf.set_xy(70, 128)
+        pdf.cell(45, 7, 'Urea Inj Pr(mbar)', 1, 1, 'C')
+        pdf.set_xy(70, 135)
+        pdf.cell(45, 7, 'Urea Air Pr(mbar)', 1, 1, 'C')
+        pdf.set_xy(70, 142)
+        pdf.cell(45, 7, 'Batt_Volt(v)', 1, 1, 'C')
+        pdf.set_xy(70, 149)
+        pdf.cell(45, 7, 'SCR_FBC', 1, 1, 'C')
+        pdf.set_xy(70, 156)
+        pdf.cell(45, 7, 'SCR_MODEL_EFF', 1, 1, 'C')
+        pdf.set_xy(70, 163)
+        pdf.cell(45, 7, 'Trip_smk_limit %', 1, 1, 'C')
+        pdf.set_xy(70, 170)
+        pdf.cell(45, 7, 'Urea dosing rate (g/hr)', 1, 1, 'C')
+
+        # max_data
+        docin_max = round(pd.Series(data.IN_Doc_in_temp).max(), 1)
+        dpfin_max = round(pd.Series(data.IN_Dpf_in_temp).max(), 1)
+        scrbed_max = round(pd.Series(data.TSE_Scr_bed_temp).max(), 1)
+        dpsootload_max = round(pd.Series(data.P_T_Dpf_dp_soot_mass).max(), 1)
+        msootload_max = round(pd.Series(data.P_T_Dpf_model_soot_mass_nvv).max(), 1)
+        spdmax = round(pd.Series(data.Eng_Speed).max(), 1)
+        espdovr = len(data[['Eng_Speed']][data.Eng_Speed > 3000]) / 60
+        espdovr = round(espdovr, 3)
+        ctemp_max = round(pd.Series(data.IN_Coolant_temperature).max(), 1)
+        trgn = data[['P_T_Dpf_chk_time_since_rgn_nvv']].dropna()
+        lentrgn = len(trgn) - 1
+        trgn1 = trgn.iat[lentrgn, 0]
+        trgn = round(trgn1 / 3600, 1)
+        urealvl_max = round(pd.Series(data.IN_Isp_l_urea_tank_raw).max(), 1)
+        ureatemp_max = round(pd.Series(data.IN_Isp_t_urea_tank).max(), 1)
+        amb_max = round(pd.Series(data.TSE_Ambient_air_temp).max(), 1)
+        max_bvol = round(pd.Series(data.VehicleBatteryPotential).max(), 1)
+        max_udos = round(pd.Series(data.P_T_Scr_upc_mfr_urea_act).max(), 1)
+
+        # Min Data
+        m_dpsootload = data[['P_T_Dpf_dp_soot_mass']][data.P_T_Dpf_dp_soot_mass > 0]
+        dpsootload_min = round(pd.Series(m_dpsootload.P_T_Dpf_dp_soot_mass).min(), 1)
+        m_msootload = data[['P_T_Dpf_model_soot_mass_nvv']][data.P_T_Dpf_model_soot_mass_nvv > 0]
+        msootload_min = round(pd.Series(m_msootload.P_T_Dpf_model_soot_mass_nvv).min(), 1)
+        mdocin = data[['IN_Doc_in_temp']][data.IN_Doc_in_temp > 0]
+        mdocin = round(pd.Series(mdocin.IN_Doc_in_temp).min(), 1)
+        mdpfin = data[['IN_Dpf_in_temp']][data.IN_Dpf_in_temp > 0]
+        mdpfin = round(pd.Series(mdpfin.IN_Dpf_in_temp).min(), 1)
+        mscrbed = data[['TSE_Scr_bed_temp']][data.TSE_Scr_bed_temp > 0]
+        mscrbed = round(pd.Series(mscrbed.TSE_Scr_bed_temp).min(), 1)
+        mctemp = data[['IN_Coolant_temperature']][data.IN_Coolant_temperature > 0]
+        ctemp_min = round(pd.Series(mctemp.IN_Coolant_temperature).min(), 1)
+        murealvl = data[['IN_Isp_l_urea_tank_raw']][data.IN_Isp_l_urea_tank_raw > 0]
+        minurealvl = round(pd.Series(murealvl.IN_Isp_l_urea_tank_raw).min(), 1)
+        mureatemp = data[['IN_Isp_t_urea_tank']][data.IN_Isp_t_urea_tank > 0]
+        ureatemp_min = round(pd.Series(mureatemp.IN_Isp_t_urea_tank).min(), 1)
+        mamb = data[['TSE_Ambient_air_temp']][data.TSE_Ambient_air_temp > 0]
+        amb_min = round(pd.Series(mamb.TSE_Ambient_air_temp).min(), 1)
+        min_vol = data[['VehicleBatteryPotential']][data.VehicleBatteryPotential > 1]
+        min_bvol = round(pd.Series(min_vol.VehicleBatteryPotential).min(), 1)
+
+        # Avg Data
+        adocin = data[['IN_Doc_in_temp']][data.IN_Doc_in_temp > 0]
+        adocin = round(pd.Series(adocin.IN_Doc_in_temp).mean(), 1)
+        adpfin = data[['IN_Dpf_in_temp']][data.IN_Dpf_in_temp > 0]
+        adpfin = round(pd.Series(adpfin.IN_Dpf_in_temp).mean(), 1)
+        ascrbed = data[['TSE_Scr_bed_temp']][data.TSE_Scr_bed_temp > 0]
+        ascrbed = round(pd.Series(ascrbed.TSE_Scr_bed_temp).mean(), 1)
+        adpsootload = round(pd.Series(m_dpsootload.P_T_Dpf_dp_soot_mass).mean(), 1)
+        amdpsootload = round(pd.Series(m_msootload.P_T_Dpf_model_soot_mass_nvv).mean(), 1)
+        actemp = round(pd.Series(mctemp.IN_Coolant_temperature).mean(), 1)
+        avg_exhflow = round(pd.Series(data.IN_Exh_vol_flow).mean(), 1)
+        amb_avg = round(pd.Series(data.TSE_Ambient_air_temp).mean(), 1)
+        urea_pr = data[['IN_Isp_p_urea']][(data.IN_Isp_p_urea > 0) & (data.P_T_Scr_drc_rls_state == 63)]
+        avg_ureapr = round(pd.Series(urea_pr.IN_Isp_p_urea).mean(), 1)
+        air_pr = data[['IN_Isp_p_air_cmp']][(data.IN_Isp_p_air_cmp > 0) & (data.P_T_Scr_drc_rls_state == 63)]
+        avg_airpr = round(pd.Series(air_pr.IN_Isp_p_air_cmp).mean(), 1)
+        avg_udos = data[['P_T_Scr_upc_mfr_urea_act']][
+            (data.P_T_Scr_upc_mfr_urea_act > 0) & (data.P_T_Scr_drc_rls_state == 63)]
+        avg_udos = round(pd.Series(avg_udos.P_T_Scr_upc_mfr_urea_act).mean(), 1)
+
+        # wveh = file.find('P31')
+        if wveh < 0:
+            ascrfbc = data[['P_T_Scr_nh3_inj_scaler_nvv']][data.P_T_Scr_nh3_inj_scaler_nvv > 0]
+            avg_scrfbc = round(pd.Series(ascrfbc.P_T_Scr_nh3_inj_scaler_nvv).mean(), 2)
+
+            ascreff = data[['P_T_Scr_nox_eff_scaler_nvv']][data.P_T_Scr_nox_eff_scaler_nvv > 0]
+            avg_screff = round(pd.Series(ascreff.P_T_Scr_nox_eff_scaler_nvv).mean(), 2)
+
+        if wveh > -1:
+            avg_scrfbc = avg_screff = 0
+        # min column
+        pdf.set_xy(115, 37)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 44)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 51)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 58)
+        pdf.cell(30, 7, '{}'.format(msootload_min), 1, 1, 'C')
+        pdf.set_xy(115, 65)
+        pdf.cell(30, 7, '{}'.format(dpsootload_min), 1, 1, 'C')
+        pdf.set_xy(115, 72)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 79)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 86)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 93)
+        pdf.cell(30, 7, '{}'.format(ctemp_min), 1, 1, 'C')
+        pdf.set_xy(115, 100)
+        pdf.cell(30, 7, '{}'.format(minurealvl), 1, 1, 'C')
+        pdf.set_xy(115, 107)
+        pdf.cell(30, 7, '{}'.format(ureatemp_min), 1, 1, 'C')
+        pdf.set_xy(115, 114)
+        pdf.cell(30, 7, '{}'.format(amb_min), 1, 1, 'C')
+        pdf.set_xy(115, 121)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 128)
+        pdf.cell(30, 7, '{}'.format(amb_min), 1, 1, 'C')
+        pdf.set_xy(115, 135)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 142)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 149)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 156)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 163)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(115, 170)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        # max column
+        pdf.set_xy(145, 37)
+        pdf.cell(30, 7, '{}'.format(docin_max), 1, 1, 'C')
+        pdf.set_xy(145, 44)
+        pdf.cell(30, 7, '{}'.format(dpfin_max), 1, 1, 'C')
+        pdf.set_xy(145, 51)
+        pdf.cell(30, 7, '{}'.format(scrbed_max), 1, 1, 'C')
+        pdf.set_xy(145, 58)
+        pdf.cell(30, 7, '{}'.format(msootload_max), 1, 1, 'C')
+        pdf.set_xy(145, 65)
+        pdf.cell(30, 7, '{}'.format(dpsootload_max), 1, 1, 'C')
+        pdf.set_xy(145, 72)
+        pdf.cell(30, 7, '{}'.format(trgn), 1, 1, 'C')
+        pdf.set_xy(145, 79)
+        pdf.cell(30, 7, '{}'.format(spdmax), 1, 1, 'C')
+        pdf.set_xy(145, 86)
+        pdf.cell(30, 7, '{}'.format(espdovr), 1, 1, 'C')
+        pdf.set_xy(145, 93)
+        pdf.cell(30, 7, '{}'.format(ctemp_max), 1, 1, 'C')
+        pdf.set_xy(145, 100)
+        pdf.cell(30, 7, '{}'.format(urealvl_max), 1, 1, 'C')
+        pdf.set_xy(145, 107)
+        pdf.cell(30, 7, '{}'.format(ureatemp_max), 1, 1, 'C')
+        pdf.set_xy(145, 114)
+        pdf.cell(30, 7, '{}'.format(amb_max), 1, 1, 'C')
+        pdf.set_xy(145, 121)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(145, 128)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(145, 135)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(145, 142)
+        pdf.cell(30, 7, '{}'.format(max_bvol), 1, 1, 'C')
+        pdf.set_xy(145, 149)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(145, 156)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(145, 163)
+        pdf.cell(30, 7, '{}'.format(smkper), 1, 1, 'C')
+        pdf.set_xy(145, 170)
+        pdf.cell(30, 7, '{}'.format(max_udos), 1, 1, 'C')
+        # avg column
+        pdf.set_xy(175, 37)
+        pdf.cell(30, 7, '{}'.format(adocin), 1, 1, 'C')
+        pdf.set_xy(175, 44)
+        pdf.cell(30, 7, '{}'.format(adpfin), 1, 1, 'C')
+        pdf.set_xy(175, 51)
+        pdf.cell(30, 7, '{}'.format(ascrbed), 1, 1, 'C')
+        pdf.set_xy(175, 58)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 65)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 72)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 79)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 86)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 93)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 100)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 107)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 114)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 121)
+        pdf.cell(30, 7, '{}'.format(avg_exhflow), 1, 1, 'C')
+        pdf.set_xy(175, 128)
+        pdf.cell(30, 7, '{}'.format(avg_ureapr), 1, 1, 'C')
+        pdf.set_xy(175, 135)
+        pdf.cell(30, 7, '{}'.format(avg_airpr), 1, 1, 'C')
+        pdf.set_xy(175, 142)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 149)
+        pdf.cell(30, 7, '{}'.format(avg_scrfbc), 1, 1, 'C')
+        pdf.set_xy(175, 156)
+        pdf.cell(30, 7, '{}'.format(avg_screff), 1, 1, 'C')
+        pdf.set_xy(175, 163)
+        pdf.cell(30, 7, '-', 1, 1, 'C')
+        pdf.set_xy(175, 170)
+        pdf.cell(30, 7, '{}'.format(avg_udos), 1, 1, 'C')
+
+        # page11
+        pdf.add_page()
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(85, 85, 85)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 8, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(80, 8)
+        pdf.set_font_size(18)
+
+        # min ,max,avg
+        pdf.cell(130, 8, 'IUPR MONITOR', 0, 1, 'C')
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font_size(8)
+        pdf.set_xy(115, 30)
+        pdf.set_fill_color(240, 128, 128)
+        pdf.set_xy(10, 30)
+        pdf.cell(25, 7, 'Group', 1, 1, 'C', True)
+        pdf.set_xy(35, 30)
+        pdf.cell(65, 7, 'Monitor', 1, 1, 'C', True)
+        pdf.set_xy(100, 30)
+        pdf.cell(15, 7, 'IUPR', 1, 1, 'C', True)
+        pdf.set_xy(115, 30)
+        pdf.cell(25, 7, 'GROUP IUPR', 1, 1, 'C', True)
+        pdf.set_xy(140, 30)
+        pdf.cell(55, 7, 'IUPR Denominator label', 1, 1, 'C', True)
+        pdf.set_xy(195, 30)
+        pdf.cell(15, 7, 'Count', 1, 1, 'C', True)
+        pdf.set_xy(210, 30)
+        pdf.cell(55, 7, 'IUPR Numerator label', 1, 1, 'C', True)
+        pdf.set_xy(265, 30)
+        pdf.cell(15, 7, 'Count', 1, 1, 'C', True)
+
+        pdf.set_xy(10, 37)
+        pdf.cell(25, 10, 'EGR', 1, 1, 'C')
+        pdf.set_xy(35, 37)
+        pdf.cell(65, 5, 'EGR Flow', 1, 1, 'C')
+        pdf.set_xy(35, 42)
+        pdf.cell(65, 5, 'EGR Cooler', 1, 1, 'C')
+
+        pdf.set_xy(10, 47)
+        pdf.cell(25, 5, 'BOOST', 1, 1, 'C')
+        pdf.set_xy(35, 47)
+        pdf.cell(65, 5, 'Intercooler', 1, 1, 'C')
+        pdf.set_xy(10, 52)
+        pdf.cell(25, 5, 'DOC', 1, 1, 'C')
+        pdf.set_xy(35, 52)
+        pdf.cell(65, 5, 'Doc Light-Off Fault', 1, 1, 'C')
+
+        pdf.set_xy(10, 57)
+        pdf.cell(25, 60, 'SCR', 1, 1, 'C')
+        pdf.set_xy(35, 57)
+        pdf.cell(65, 5, 'Urea Low Quality Fault', 1, 1, 'C')
+        pdf.set_xy(35, 62)
+        pdf.cell(65, 5, 'High Urea Consumption Fault', 1, 1, 'C')
+        pdf.set_xy(35, 67)
+        pdf.cell(65, 5, 'Low Urea Consumption Fault', 1, 1, 'C')
+        pdf.set_xy(35, 72)
+        pdf.cell(65, 5, 'Scr Air Pipe Crack Fault', 1, 1, 'C')
+        pdf.set_xy(35, 77)
+        pdf.cell(65, 5, 'Scr Air Pipe Plugged Fault', 1, 1, 'C')
+        pdf.set_xy(35, 82)
+        pdf.cell(65, 5, 'Scr Air Pressure Sensor Rationality Fault', 1, 1, 'C')
+        pdf.set_xy(35, 87)
+        pdf.cell(65, 5, 'Scr Air Pressure Sensor Rationality Fault', 1, 1, 'C')
+        pdf.set_xy(35, 92)
+        pdf.cell(65, 5, 'Scr Urea Pipe Crack Fault', 1, 1, 'C')
+        pdf.set_xy(35, 97)
+        pdf.cell(65, 5, 'Scr Low Efficiency Fault', 1, 1, 'C')
+        pdf.set_xy(35, 102)
+        pdf.cell(65, 5, 'Urea Pipe Fill Failure', 1, 1, 'C')
+        pdf.set_xy(35, 107)
+        pdf.cell(65, 5, 'Urea Pressure Sensor Signal Range High Fault', 1, 1, 'C')
+        pdf.set_xy(35, 112)
+        pdf.cell(65, 5, 'Urea Pressure Sensor Signal Range Low Fault', 1, 1, 'C')
+
+        pdf.set_xy(10, 117)
+        pdf.cell(25, 25, 'DPF', 1, 1, 'C')
+        pdf.set_xy(35, 117)
+        pdf.cell(65, 5, 'Dpf Not Present Fault', 1, 1, 'C')
+        pdf.set_xy(35, 122)
+        pdf.cell(65, 5, 'Dpf Incomplete Regeneration Fault', 1, 1, 'C')
+        pdf.set_xy(35, 127)
+        pdf.cell(65, 5, 'Dpf Filteration Efficiency Fault', 1, 1, 'C')
+        pdf.set_xy(35, 132)
+        pdf.cell(65, 5, 'Dpf Plugged Dpf Fault Based On Modeled Soot ', 1, 1, 'C')
+        pdf.set_xy(35, 137)
+        pdf.cell(65, 5, 'Dpf Fault Based On Delta Pressure Sensor', 1, 1, 'C')
+
+        pdf.set_xy(10, 142)
+        pdf.cell(25, 50, '', 1, 1, 'C')
+        pdf.set_xy(10, 137)
+        pdf.cell(25, 50, 'Gas & oxygen', 0, 1, 'C')
+        pdf.set_xy(10, 145)
+        pdf.cell(25, 45, 'sensors', 0, 1, 'C')
+        pdf.set_xy(35, 142)
+        pdf.cell(65, 5, 'Doc Inlet Temperature Plausibility Fault', 1, 1, 'C')
+        pdf.set_xy(35, 147)
+        pdf.cell(65, 5, 'Dpf Delta Pressure Plausibility Fault', 1, 1, 'C')
+        pdf.set_xy(35, 152)
+        pdf.cell(65, 5, 'Dpf Inlet Temperature Plausibility Fault', 1, 1, 'C')
+        pdf.set_xy(35, 157)
+        pdf.cell(65, 5, 'Inlet Nox Sensor Signal Not Available', 1, 1, 'C')
+        pdf.set_xy(35, 162)
+        pdf.cell(65, 5, 'Outlet Nox Sensor Signal Not Available', 1, 1, 'C')
+        pdf.set_xy(35, 167)
+        pdf.cell(65, 5, 'Inlet Nox Sensor Out Of Range High Fault', 1, 1, 'C')
+        pdf.set_xy(35, 172)
+        pdf.cell(65, 5, 'Inlet Nox Sensor Rich To Lean Fault', 1, 1, 'C')
+        pdf.set_xy(35, 177)
+        pdf.cell(65, 5, 'Outlet Nox Sensor Rich To Lean Fault', 1, 1, 'C')
+        pdf.set_xy(35, 182)
+        pdf.cell(65, 5, 'Outlet Nox Sensor Out Of Range High Fault', 1, 1, 'C')
+        pdf.set_xy(35, 187)
+        pdf.cell(65, 5, 'Scr Inlet Temperature Plausibility Fault', 1, 1, 'C')
+
+        pdf.set_xy(140, 37)
+        pdf.cell(55, 5, 'DIUMPR_ctDenom_0', 0, 1, 'C')
+        pdf.set_xy(140, 42)
+        pdf.cell(55, 5, 'DIUMPR_ctDenom_1', 1, 1, 'C')
+        pdf.set_xy(140, 47)
+        pdf.cell(55, 5, 'DIUMPR_ctDenom_2', 1, 1, 'C')
+
+        pdf.set_xy(140, 52)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv4', 1, 1, 'C')
+        pdf.set_xy(140, 57)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv0', 1, 1, 'C')
+        pdf.set_xy(140, 62)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv1', 1, 1, 'C')
+        pdf.set_xy(140, 67)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv2', 1, 1, 'C')
+        pdf.set_xy(140, 72)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv18', 1, 1, 'C')
+        pdf.set_xy(140, 77)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv19', 1, 1, 'C')
+        pdf.set_xy(140, 82)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv20', 1, 1, 'C')
+        pdf.set_xy(140, 87)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv21', 1, 1, 'C')
+        pdf.set_xy(140, 92)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv22', 1, 1, 'C')
+        pdf.set_xy(140, 97)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv23', 1, 1, 'C')
+        pdf.set_xy(140, 102)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv25', 1, 1, 'C')
+        pdf.set_xy(140, 107)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv26', 1, 1, 'C')
+        pdf.set_xy(140, 112)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv27', 1, 1, 'C')
+        pdf.set_xy(140, 117)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv6', 1, 1, 'C')
+        pdf.set_xy(140, 122)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv8', 1, 1, 'C')
+        pdf.set_xy(140, 127)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv9', 1, 1, 'C')
+        pdf.set_xy(140, 132)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv11', 1, 1, 'C')
+        pdf.set_xy(140, 137)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv10', 1, 1, 'C')
+        pdf.set_xy(140, 142)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv3', 1, 1, 'C')
+        pdf.set_xy(140, 147)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv5', 1, 1, 'C')
+        pdf.set_xy(140, 152)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv7', 1, 1, 'C')
+        pdf.set_xy(140, 157)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv12', 1, 1, 'C')
+        pdf.set_xy(140, 162)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv13', 1, 1, 'C')
+        pdf.set_xy(140, 167)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv14', 1, 1, 'C')
+        pdf.set_xy(140, 172)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv15', 1, 1, 'C')
+        pdf.set_xy(140, 177)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv16', 1, 1, 'C')
+        pdf.set_xy(140, 182)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv17', 1, 1, 'C')
+        pdf.set_xy(140, 187)
+        pdf.cell(55, 5, 'F_M_Rbm_denominator_nvv24', 1, 1, 'C')
+
+        pdf.set_xy(210, 37)
+        pdf.cell(55, 5, 'DIUMPR_ctNum_0', 1, 1, 'C')
+        pdf.set_xy(210, 42)
+        pdf.cell(55, 5, 'DIUMPR_ctNum_1', 1, 1, 'C')
+        pdf.set_xy(210, 47)
+        pdf.cell(55, 5, 'DIUMPR_ctNum_2', 1, 1, 'C')
+
+        pdf.set_xy(210, 52)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv4', 1, 1, 'C')
+        pdf.set_xy(210, 57)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv0', 1, 1, 'C')
+        pdf.set_xy(210, 62)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv1', 1, 1, 'C')
+        pdf.set_xy(210, 67)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv2', 1, 1, 'C')
+        pdf.set_xy(210, 72)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv18', 1, 1, 'C')
+        pdf.set_xy(210, 77)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv19', 1, 1, 'C')
+        pdf.set_xy(210, 82)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv20', 1, 1, 'C')
+        pdf.set_xy(210, 87)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv21', 1, 1, 'C')
+        pdf.set_xy(210, 92)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv22', 1, 1, 'C')
+        pdf.set_xy(210, 97)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv23', 1, 1, 'C')
+        pdf.set_xy(210, 102)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv24', 1, 1, 'C')
+        pdf.set_xy(210, 107)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv26', 1, 1, 'C')
+        pdf.set_xy(210, 112)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv27', 1, 1, 'C')
+        pdf.set_xy(210, 117)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv6', 1, 1, 'C')
+        pdf.set_xy(210, 122)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv8', 1, 1, 'C')
+        pdf.set_xy(210, 127)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv9', 1, 1, 'C')
+        pdf.set_xy(210, 132)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv11', 1, 1, 'C')
+        pdf.set_xy(210, 137)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv10', 1, 1, 'C')
+        pdf.set_xy(210, 142)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv3', 1, 1, 'C')
+        pdf.set_xy(210, 147)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv5', 1, 1, 'C')
+        pdf.set_xy(210, 152)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv7', 1, 1, 'C')
+        pdf.set_xy(210, 157)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv12', 1, 1, 'C')
+        pdf.set_xy(210, 162)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv13', 1, 1, 'C')
+        pdf.set_xy(210, 167)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv14', 1, 1, 'C')
+        pdf.set_xy(210, 172)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv15', 1, 1, 'C')
+        pdf.set_xy(210, 177)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv16', 1, 1, 'C')
+        pdf.set_xy(210, 182)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv17', 1, 1, 'C')
+        pdf.set_xy(210, 187)
+        pdf.cell(55, 5, 'F_M_Rbm_numerator_nvv24', 1, 1, 'C')
+
+        denom0 = round(pd.Series(data.DIUMPR_ctDenom_0).max(), 0)
+        denom1 = round(pd.Series(data.DIUMPR_ctDenom_1).max(), 0)
+        denom2 = round(pd.Series(data.DIUMPR_ctDenom_2).max(), 0)
+        rbmdenom0 = round(pd.Series(data.F_M_Rbm_denominator_nvv0).max(), 0)
+        rbmdenom1 = round(pd.Series(data.F_M_Rbm_denominator_nvv1).max(), 0)
+        rbmdenom2 = round(pd.Series(data.F_M_Rbm_denominator_nvv2).max(), 0)
+        rbmdenom3 = round(pd.Series(data.F_M_Rbm_denominator_nvv3).max(), 0)
+        rbmdenom4 = round(pd.Series(data.F_M_Rbm_denominator_nvv4).max(), 0)
+        rbmdenom5 = round(pd.Series(data.F_M_Rbm_denominator_nvv5).max(), 0)
+        rbmdenom6 = round(pd.Series(data.F_M_Rbm_denominator_nvv6).max(), 0)
+        rbmdenom7 = round(pd.Series(data.F_M_Rbm_denominator_nvv7).max(), 0)
+        rbmdenom8 = round(pd.Series(data.F_M_Rbm_denominator_nvv8).max(), 0)
+        rbmdenom9 = round(pd.Series(data.F_M_Rbm_denominator_nvv9).max(), 0)
+        rbmdenom10 = round(pd.Series(data.F_M_Rbm_denominator_nvv10).max(), 0)
+        rbmdenom11 = round(pd.Series(data.F_M_Rbm_denominator_nvv11).max(), 0)
+        rbmdenom12 = round(pd.Series(data.F_M_Rbm_denominator_nvv12).max(), 0)
+        rbmdenom13 = round(pd.Series(data.F_M_Rbm_denominator_nvv13).max(), 0)
+        rbmdenom14 = round(pd.Series(data.F_M_Rbm_denominator_nvv14).max(), 0)
+        rbmdenom15 = round(pd.Series(data.F_M_Rbm_denominator_nvv15).max(), 0)
+        rbmdenom16 = round(pd.Series(data.F_M_Rbm_denominator_nvv16).max(), 0)
+        rbmdenom17 = round(pd.Series(data.F_M_Rbm_denominator_nvv17).max(), 0)
+        rbmdenom18 = round(pd.Series(data.F_M_Rbm_denominator_nvv18).max(), 0)
+        rbmdenom19 = round(pd.Series(data.F_M_Rbm_denominator_nvv19).max(), 0)
+        rbmdenom20 = round(pd.Series(data.F_M_Rbm_denominator_nvv20).max(), 0)
+        rbmdenom21 = round(pd.Series(data.F_M_Rbm_denominator_nvv21).max(), 0)
+        rbmdenom22 = round(pd.Series(data.F_M_Rbm_denominator_nvv22).max(), 0)
+        rbmdenom23 = round(pd.Series(data.F_M_Rbm_denominator_nvv23).max(), 0)
+        rbmdenom24 = round(pd.Series(data.F_M_Rbm_denominator_nvv24).max(), 0)
+        rbmdenom25 = round(pd.Series(data.F_M_Rbm_denominator_nvv25).max(), 0)
+        rbmdenom26 = round(pd.Series(data.F_M_Rbm_denominator_nvv26).max(), 0)
+        rbmdenom27 = round(pd.Series(data.F_M_Rbm_denominator_nvv27).max(), 0)
+
+        nom0 = round(pd.Series(data.DIUMPR_ctNum_0).max(), 0)
+        nom1 = round(pd.Series(data.DIUMPR_ctNum_1).max(), 0)
+        nom2 = round(pd.Series(data.DIUMPR_ctNum_2).max(), 0)
+        rbmnom0 = round(pd.Series(data.F_M_Rbm_numerator_nvv0).max(), 0)
+        rbmnom1 = round(pd.Series(data.F_M_Rbm_numerator_nvv1).max(), 0)
+        rbmnom2 = round(pd.Series(data.F_M_Rbm_numerator_nvv2).max(), 0)
+        rbmnom3 = round(pd.Series(data.F_M_Rbm_numerator_nvv3).max(), 0)
+        rbmnom4 = round(pd.Series(data.F_M_Rbm_numerator_nvv4).max(), 0)
+        rbmnom5 = round(pd.Series(data.F_M_Rbm_numerator_nvv5).max(), 0)
+        rbmnom6 = round(pd.Series(data.F_M_Rbm_numerator_nvv6).max(), 0)
+        rbmnom7 = round(pd.Series(data.F_M_Rbm_numerator_nvv7).max(), 0)
+        rbmnom8 = round(pd.Series(data.F_M_Rbm_numerator_nvv8).max(), 0)
+        rbmnom9 = round(pd.Series(data.F_M_Rbm_numerator_nvv9).max(), 0)
+        rbmnom10 = round(pd.Series(data.F_M_Rbm_numerator_nvv10).max(), 0)
+        rbmnom11 = round(pd.Series(data.F_M_Rbm_numerator_nvv11).max(), 0)
+        rbmnom12 = round(pd.Series(data.F_M_Rbm_numerator_nvv12).max(), 0)
+        rbmnom13 = round(pd.Series(data.F_M_Rbm_numerator_nvv13).max(), 0)
+        rbmnom14 = round(pd.Series(data.F_M_Rbm_numerator_nvv14).max(), 0)
+        rbmnom15 = round(pd.Series(data.F_M_Rbm_numerator_nvv15).max(), 0)
+        rbmnom16 = round(pd.Series(data.F_M_Rbm_numerator_nvv16).max(), 0)
+        rbmnom17 = round(pd.Series(data.F_M_Rbm_numerator_nvv17).max(), 0)
+        rbmnom18 = round(pd.Series(data.F_M_Rbm_numerator_nvv18).max(), 0)
+        rbmnom19 = round(pd.Series(data.F_M_Rbm_numerator_nvv19).max(), 0)
+        rbmnom20 = round(pd.Series(data.F_M_Rbm_numerator_nvv20).max(), 0)
+        rbmnom21 = round(pd.Series(data.F_M_Rbm_numerator_nvv21).max(), 0)
+        rbmnom22 = round(pd.Series(data.F_M_Rbm_numerator_nvv22).max(), 0)
+        rbmnom23 = round(pd.Series(data.F_M_Rbm_numerator_nvv23).max(), 0)
+        rbmnom24 = round(pd.Series(data.F_M_Rbm_numerator_nvv24).max(), 0)
+        rbmnom25 = round(pd.Series(data.F_M_Rbm_numerator_nvv25).max(), 0)
+        rbmnom26 = round(pd.Series(data.F_M_Rbm_numerator_nvv26).max(), 0)
+        rbmnom27 = round(pd.Series(data.F_M_Rbm_numerator_nvv27).max(), 0)
+        print(denom0)
+        print(rbmdenom0)
+        iupr0 = round(nom0 / denom0, 2)
+        iupr1 = round(nom1 / denom1, 2)
+        iupr2 = round(nom2 / denom2, 2)
+        rbmiupr0 = round(rbmnom0 / rbmdenom0, 2)
+        rbmiupr1 = round(rbmnom1 / rbmdenom1, 2)
+        rbmiupr2 = round(rbmnom2 / rbmdenom2, 2)
+        rbmiupr3 = round(rbmnom3 / rbmdenom3, 2)
+        rbmiupr4 = round(rbmnom4 / rbmdenom4, 2)
+        rbmiupr5 = round(rbmnom5 / rbmdenom5, 2)
+        rbmiupr6 = round(rbmnom6 / rbmdenom6, 2)
+        rbmiupr7 = round(rbmnom7 / rbmdenom7, 2)
+        rbmiupr8 = round(rbmnom8 / rbmdenom8, 2)
+        rbmiupr9 = round(rbmnom9 / rbmdenom9, 2)
+        rbmiupr10 = round(rbmnom10 / rbmdenom10, 2)
+        rbmiupr11 = round(rbmnom11 / rbmdenom11, 2)
+        rbmiupr12 = round(rbmnom12 / rbmdenom12, 2)
+        rbmiupr13 = round(rbmnom13 / rbmdenom13, 2)
+        rbmiupr14 = round(rbmnom14 / rbmdenom14, 2)
+        rbmiupr15 = round(rbmnom15 / rbmdenom15, 2)
+        rbmiupr16 = round(rbmnom16 / rbmdenom16, 2)
+        rbmiupr17 = round(rbmnom17 / rbmdenom17, 2)
+        rbmiupr18 = round(rbmnom18 / rbmdenom18, 2)
+        rbmiupr19 = round(rbmnom19 / rbmdenom19, 2)
+        rbmiupr20 = round(rbmnom20 / rbmdenom20, 2)
+        rbmiupr21 = round(rbmnom21 / rbmdenom21, 2)
+        rbmiupr22 = round(rbmnom22 / rbmdenom22, 2)
+        rbmiupr23 = round(rbmnom23 / rbmdenom23, 2)
+        rbmiupr24 = round(rbmnom24 / rbmdenom24, 2)
+        rbmiupr25 = round(rbmnom25 / rbmdenom25, 2)
+        rbmiupr26 = round(rbmnom26 / rbmdenom26, 2)
+        rbmiupr27 = round(rbmnom27 / rbmdenom27, 2)
+
+        # GROUP IUPR
+        egriupr = min(iupr0, iupr1)
+        boostiupr = iupr2
+        dociupr = rbmiupr4
+        scriupr = min(rbmiupr0, rbmiupr1, rbmiupr2, rbmiupr18, rbmiupr19, rbmiupr20, rbmiupr21, rbmiupr22, rbmiupr23,
+                      rbmiupr25, rbmiupr26, rbmiupr27)
+        dpfiupr = min(rbmiupr6, rbmiupr8, rbmiupr9, rbmiupr11, rbmiupr10)
+        sensiupr = min(rbmiupr3, rbmiupr5, rbmiupr7, rbmiupr12, rbmiupr13, rbmiupr14, rbmiupr15, rbmiupr16, rbmiupr17,
+                       rbmiupr24)
+
+        pdf.set_xy(115, 37)
+        pdf.cell(25, 10, '{}'.format(egriupr), 1, 1, 'C')
+        pdf.set_xy(115, 47)
+        pdf.cell(25, 5, '{}'.format(boostiupr), 1, 1, 'C')
+        pdf.set_xy(115, 52)
+        pdf.cell(25, 5, '{}'.format(dociupr), 1, 1, 'C')
+        pdf.set_xy(115, 57)
+        pdf.cell(25, 60, '{}'.format(scriupr), 1, 1, 'C')
+        pdf.set_xy(115, 117)
+        pdf.cell(25, 25, '{}'.format(dpfiupr), 1, 1, 'C')
+        pdf.set_xy(115, 142)
+        pdf.cell(25, 50, '{}'.format(sensiupr), 1, 1, 'C')
+
+        pdf.set_xy(195, 37)
+        pdf.cell(15, 5, '{}'.format(denom0), 1, 1, 'C')
+        pdf.set_xy(195, 42)
+        pdf.cell(15, 5, '{}'.format(denom1), 1, 1, 'C')
+        pdf.set_xy(195, 47)
+        pdf.cell(15, 5, '{}'.format(denom2), 1, 1, 'C')
+        pdf.set_xy(195, 52)
+        pdf.cell(15, 5, '{}'.format(rbmdenom4), 1, 1, 'C')
+        pdf.set_xy(195, 57)
+        pdf.cell(15, 5, '{}'.format(rbmdenom0), 1, 1, 'C')
+        pdf.set_xy(195, 62)
+        pdf.cell(15, 5, '{}'.format(rbmdenom1), 1, 1, 'C')
+        pdf.set_xy(195, 67)
+        pdf.cell(15, 5, '{}'.format(rbmdenom2), 1, 1, 'C')
+        pdf.set_xy(195, 72)
+        pdf.cell(15, 5, '{}'.format(rbmdenom18), 1, 1, 'C')
+        pdf.set_xy(195, 77)
+        pdf.cell(15, 5, '{}'.format(rbmdenom19), 1, 1, 'C')
+        pdf.set_xy(195, 82)
+        pdf.cell(15, 5, '{}'.format(rbmdenom20), 1, 1, 'C')
+        pdf.set_xy(195, 87)
+        pdf.cell(15, 5, '{}'.format(rbmdenom21), 1, 1, 'C')
+        pdf.set_xy(195, 92)
+        pdf.cell(15, 5, '{}'.format(rbmdenom22), 1, 1, 'C')
+        pdf.set_xy(195, 97)
+        pdf.cell(15, 5, '{}'.format(rbmdenom23), 1, 1, 'C')
+        pdf.set_xy(195, 102)
+        pdf.cell(15, 5, '{}'.format(rbmdenom25), 1, 1, 'C')
+        pdf.set_xy(195, 107)
+        pdf.cell(15, 5, '{}'.format(rbmdenom26), 1, 1, 'C')
+        pdf.set_xy(195, 112)
+        pdf.cell(15, 5, '{}'.format(rbmdenom27), 1, 1, 'C')
+        pdf.set_xy(195, 117)
+        pdf.cell(15, 5, '{}'.format(rbmdenom6), 1, 1, 'C')
+        pdf.set_xy(195, 122)
+        pdf.cell(15, 5, '{}'.format(rbmdenom8), 1, 1, 'C')
+        pdf.set_xy(195, 127)
+        pdf.cell(15, 5, '{}'.format(rbmdenom9), 1, 1, 'C')
+        pdf.set_xy(195, 132)
+        pdf.cell(15, 5, '{}'.format(rbmdenom11), 1, 1, 'C')
+        pdf.set_xy(195, 137)
+        pdf.cell(15, 5, '{}'.format(rbmdenom10), 1, 1, 'C')
+        pdf.set_xy(195, 142)
+        pdf.cell(15, 5, '{}'.format(rbmdenom3), 1, 1, 'C')
+        pdf.set_xy(195, 147)
+        pdf.cell(15, 5, '{}'.format(rbmdenom5), 1, 1, 'C')
+        pdf.set_xy(195, 152)
+        pdf.cell(15, 5, '{}'.format(rbmdenom7), 1, 1, 'C')
+        pdf.set_xy(195, 157)
+        pdf.cell(15, 5, '{}'.format(rbmdenom12), 1, 1, 'C')
+        pdf.set_xy(195, 162)
+        pdf.cell(15, 5, '{}'.format(rbmdenom13), 1, 1, 'C')
+        pdf.set_xy(195, 167)
+        pdf.cell(15, 5, '{}'.format(rbmdenom14), 1, 1, 'C')
+        pdf.set_xy(195, 172)
+        pdf.cell(15, 5, '{}'.format(rbmdenom15), 1, 1, 'C')
+        pdf.set_xy(195, 177)
+        pdf.cell(15, 5, '{}'.format(rbmdenom16), 1, 1, 'C')
+        pdf.set_xy(195, 182)
+        pdf.cell(15, 5, '{}'.format(rbmdenom17), 1, 1, 'C')
+        pdf.set_xy(195, 187)
+        pdf.cell(15, 5, '{}'.format(rbmdenom24), 1, 1, 'C')
+
+        pdf.set_xy(265, 37)
+        pdf.cell(15, 5, '{}'.format(nom0), 1, 1, 'C')
+        pdf.set_xy(265, 42)
+        pdf.cell(15, 5, '{}'.format(nom1), 1, 1, 'C')
+        pdf.set_xy(265, 47)
+        pdf.cell(15, 5, '{}'.format(nom2), 1, 1, 'C')
+        pdf.set_xy(265, 52)
+        pdf.cell(15, 5, '{}'.format(rbmnom4), 1, 1, 'C')
+        pdf.set_xy(265, 57)
+        pdf.cell(15, 5, '{}'.format(rbmnom0), 1, 1, 'C')
+        pdf.set_xy(265, 62)
+        pdf.cell(15, 5, '{}'.format(rbmnom1), 1, 1, 'C')
+        pdf.set_xy(265, 67)
+        pdf.cell(15, 5, '{}'.format(rbmnom2), 1, 1, 'C')
+        pdf.set_xy(265, 72)
+        pdf.cell(15, 5, '{}'.format(rbmnom18), 1, 1, 'C')
+        pdf.set_xy(265, 77)
+        pdf.cell(15, 5, '{}'.format(rbmnom19), 1, 1, 'C')
+        pdf.set_xy(265, 82)
+        pdf.cell(15, 5, '{}'.format(rbmnom20), 1, 1, 'C')
+        pdf.set_xy(265, 87)
+        pdf.cell(15, 5, '{}'.format(rbmnom21), 1, 1, 'C')
+        pdf.set_xy(265, 92)
+        pdf.cell(15, 5, '{}'.format(rbmnom22), 1, 1, 'C')
+        pdf.set_xy(265, 97)
+        pdf.cell(15, 5, '{}'.format(rbmnom23), 1, 1, 'C')
+        pdf.set_xy(265, 102)
+        pdf.cell(15, 5, '{}'.format(rbmnom25), 1, 1, 'C')
+        pdf.set_xy(265, 107)
+        pdf.cell(15, 5, '{}'.format(rbmnom26), 1, 1, 'C')
+        pdf.set_xy(265, 112)
+        pdf.cell(15, 5, '{}'.format(rbmnom27), 1, 1, 'C')
+        pdf.set_xy(265, 117)
+        pdf.cell(15, 5, '{}'.format(rbmnom6), 1, 1, 'C')
+        pdf.set_xy(265, 122)
+        pdf.cell(15, 5, '{}'.format(rbmnom8), 1, 1, 'C')
+        pdf.set_xy(265, 127)
+        pdf.cell(15, 5, '{}'.format(rbmnom9), 1, 1, 'C')
+        pdf.set_xy(265, 132)
+        pdf.cell(15, 5, '{}'.format(rbmnom11), 1, 1, 'C')
+        pdf.set_xy(265, 137)
+        pdf.cell(15, 5, '{}'.format(rbmnom10), 1, 1, 'C')
+        pdf.set_xy(265, 142)
+        pdf.cell(15, 5, '{}'.format(rbmnom3), 1, 1, 'C')
+        pdf.set_xy(265, 147)
+        pdf.cell(15, 5, '{}'.format(rbmnom5), 1, 1, 'C')
+        pdf.set_xy(265, 152)
+        pdf.cell(15, 5, '{}'.format(rbmnom7), 1, 1, 'C')
+        pdf.set_xy(265, 157)
+        pdf.cell(15, 5, '{}'.format(rbmnom12), 1, 1, 'C')
+        pdf.set_xy(265, 162)
+        pdf.cell(15, 5, '{}'.format(rbmnom13), 1, 1, 'C')
+        pdf.set_xy(265, 167)
+        pdf.cell(15, 5, '{}'.format(rbmnom14), 1, 1, 'C')
+        pdf.set_xy(265, 172)
+        pdf.cell(15, 5, '{}'.format(rbmnom15), 1, 1, 'C')
+        pdf.set_xy(265, 177)
+        pdf.cell(15, 5, '{}'.format(rbmnom16), 1, 1, 'C')
+        pdf.set_xy(265, 182)
+        pdf.cell(15, 5, '{}'.format(rbmnom17), 1, 1, 'C')
+        pdf.set_xy(265, 187)
+        pdf.cell(15, 5, '{}'.format(rbmnom24), 1, 1, 'C')
+
+        pdf.set_xy(100, 37)
+        pdf.cell(15, 5, '{}'.format(iupr0), 1, 1, 'C')
+        pdf.set_xy(100, 42)
+        pdf.cell(15, 5, '{}'.format(iupr1), 1, 1, 'C')
+        pdf.set_xy(100, 47)
+        pdf.cell(15, 5, '{}'.format(iupr2), 1, 1, 'C')
+        pdf.set_xy(100, 52)
+        pdf.cell(15, 5, '{}'.format(rbmiupr4), 1, 1, 'C')
+        pdf.set_xy(100, 57)
+        pdf.cell(15, 5, '{}'.format(rbmiupr0), 1, 1, 'C')
+        pdf.set_xy(100, 62)
+        pdf.cell(15, 5, '{}'.format(rbmiupr1), 1, 1, 'C')
+        pdf.set_xy(100, 67)
+        pdf.cell(15, 5, '{}'.format(rbmiupr2), 1, 1, 'C')
+        pdf.set_xy(100, 72)
+        pdf.cell(15, 5, '{}'.format(rbmiupr18), 1, 1, 'C')
+        pdf.set_xy(100, 77)
+        pdf.cell(15, 5, '{}'.format(rbmiupr19), 1, 1, 'C')
+        pdf.set_xy(100, 82)
+        pdf.cell(15, 5, '{}'.format(rbmiupr20), 1, 1, 'C')
+        pdf.set_xy(100, 87)
+        pdf.cell(15, 5, '{}'.format(rbmiupr21), 1, 1, 'C')
+        pdf.set_xy(100, 92)
+        pdf.cell(15, 5, '{}'.format(rbmiupr22), 1, 1, 'C')
+        pdf.set_xy(100, 97)
+        pdf.cell(15, 5, '{}'.format(rbmiupr23), 1, 1, 'C')
+        pdf.set_xy(100, 102)
+        pdf.cell(15, 5, '{}'.format(rbmiupr25), 1, 1, 'C')
+        pdf.set_xy(100, 107)
+        pdf.cell(15, 5, '{}'.format(rbmiupr26), 1, 1, 'C')
+        pdf.set_xy(100, 112)
+        pdf.cell(15, 5, '{}'.format(rbmiupr27), 1, 1, 'C')
+        pdf.set_xy(100, 117)
+        pdf.cell(15, 5, '{}'.format(rbmiupr6), 1, 1, 'C')
+        pdf.set_xy(100, 122)
+        pdf.cell(15, 5, '{}'.format(rbmiupr8), 1, 1, 'C')
+        pdf.set_xy(100, 127)
+        pdf.cell(15, 5, '{}'.format(rbmiupr9), 1, 1, 'C')
+        pdf.set_xy(100, 132)
+        pdf.cell(15, 5, '{}'.format(rbmiupr11), 1, 1, 'C')
+        pdf.set_xy(100, 137)
+        pdf.cell(15, 5, '{}'.format(rbmiupr10), 1, 1, 'C')
+        pdf.set_xy(100, 142)
+        pdf.cell(15, 5, '{}'.format(rbmiupr3), 1, 1, 'C')
+        pdf.set_xy(100, 147)
+        pdf.cell(15, 5, '{}'.format(rbmiupr5), 1, 1, 'C')
+        pdf.set_xy(100, 152)
+        pdf.cell(15, 5, '{}'.format(rbmiupr7), 1, 1, 'C')
+        pdf.set_xy(100, 157)
+        pdf.cell(15, 5, '{}'.format(rbmiupr12), 1, 1, 'C')
+        pdf.set_xy(100, 162)
+        pdf.cell(15, 5, '{}'.format(rbmiupr13), 1, 1, 'C')
+        pdf.set_xy(100, 167)
+        pdf.cell(15, 5, '{}'.format(rbmiupr14), 1, 1, 'C')
+        pdf.set_xy(100, 172)
+        pdf.cell(15, 5, '{}'.format(rbmiupr15), 1, 1, 'C')
+        pdf.set_xy(100, 177)
+        pdf.cell(15, 5, '{}'.format(rbmiupr16), 1, 1, 'C')
+        pdf.set_xy(100, 182)
+        pdf.cell(15, 5, '{}'.format(rbmiupr17), 1, 1, 'C')
+        pdf.set_xy(100, 187)
+        pdf.cell(15, 5, '{}'.format(rbmiupr24), 1, 1, 'C')
+
+        # IUPR_PLOT
+
+        colle = np.array([egriupr, boostiupr, dociupr, scriupr, dpfiupr, sensiupr])
+        y = pd.Series(colle)
+        x = pd.Series([0, 1, 2, 3, 4, 5])
+        ax3 = plt.bar(x, y, 0.5, color='blue')
+        XX = ([0, 5])
+        YY = ([0.2, 0.2])
+        XXX = ([0, 5])
+        YYY = ([0.1, 0.1])
+        plt.plot(XXX, YYY, '--', color='red')
+        # plt.legend(['Legal_limit'])
+        plt.plot(XX, YY, color='blue')
+        plt.legend(['Legal_limit', 'Engg_limit'])
+        plt.ylabel('IUPR')
+        plt.yticks([0.1, 0.2, 0.3, 0.5, 0.7, 1])
+        plt.xticks((0, 1, 2, 3, 4, 5), ['EGR', 'BOOST', 'DOC', 'SCR', 'DPF', 'GAS & OXYGEN SENSORS'], fontsize=7)
+        plt.title('GROUP IUPR', color='black')
+        # y = y.max() + 0.1
+        plt.ylim(0, 0.8)
+
+        annotate1(ax3)
+
+        plt.savefig('IUPR.jpg')
+
+        # IUPR_PLOT
+
+        # page10
+        pdf.add_page()
+
+        pdf.set_xy(0, 0)
+        pdf.image('allogo.jpg', 0, 0, 50, 20)
+        pdf.set_fill_color(85, 85, 85)
+        pdf.set_xy(0, 21)
+        pdf.cell(297, 8, '', 0, 1, 'C', True)
+        pdf.set_xy(0, 203)
+        pdf.cell(297, 7, '', 0, 1, 'C', True)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font_size(12)
+        pdf.set_xy(275, 204)
+        pno = pdf.page_no()
+        pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        pdf.set_text_color(47, 79, 79)
+        pdf.set_xy(80, 8)
+        pdf.set_font_size(18)
+        pdf.cell(130, 8, 'GROUP MONITOR', 0, 1, 'C')
+        pdf.image('IUPR.jpg', 50, 35, 200, 150)
+        # Error code
+        # pdf.add_page()
+        # pdf.set_xy(0, 0)
+        # pdf.image('allogo.jpg', 0, 0, 50, 20)
+        # pdf.set_fill_color(105, 105, 105)
+        # pdf.set_xy(0, 21)
+        # pdf.cell(297, 10, '', 0, 1, 'C', True)
+        # pdf.set_xy(0, 203)
+        # pdf.cell(297, 7, '', 0, 1, 'C', True)
+        # pdf.set_text_color(255, 255, 255)
+        # pdf.set_font_size(12)
+        # pdf.set_xy(275, 204)
+        # pno = pdf.page_no()
+        # pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        # pdf.set_text_color(47, 79, 79)
+        # pdf.set_xy(100, 10)
+        # pdf.set_font_size(18)
+        # pdf.cell(115, 10, 'FAULT CODES LOGGED', 0, 1, 'C')
+
+        # tokensEndpoint = 'https://al-apigateway.drivewithdarby.com/v1/tokens'
+        #
+        #
+        # def getDarbyToken(username, password):
+        #     userpass = {}
+        #     userpass['userName'] = 'alApiUser'  # Taking username pwd input
+        #     userpass['password'] = '1234567890-alApiUser'
+        #     r = requests.post(tokensEndpoint, json=userpass)  # posting to API
+        #     b = r.json()  # Storing the response text
+        #     access_token = b['accessToken']
+        #     decodedToken = 'Bearer ' + access_token  # Forming the token string
+        #     return decodedToken
+
+        # Authentication
+
+        # darbyToken = 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJmMTA1OWY5Yi0zZWY1LTQ5NDItYmZiZi1lMmFiYjgzZDM3NGQiLCJpYXQiOjE2MzA1Njg2NTYsImlzcyI6ImRhcmJ5IiwiYXVkIjoiYjQ5OTUxZTAtNTZmNi00ZDMwLWFlNjMtYWNhYmI1MDg4NmFlIiwiZiI6ImthbGlyYWoiLCJsIjoiciIsInQiOiJTVUJfVVNFUiIsImNpZCI6NiwiYSI6WyJVUl8xIiwiREVfMSIsIlJQXzEiLCJEQl8xIiwiTElfMSIsIkdQXzEiLCJBRF8xIiwiQUxfMSIsIkFQUkwxXzEiLCJSTF8xIiwiVFJfMSIsIk9UXzEiLCJBUF8xMiIsIkRUXzEiXSwiciI6IjMzYTRkMDAyLTM1MTktNGFhNy05MTM2LWQ0OGM4YTMyYWI4ZiIsImNkIjoiZDYwMWIxNGItMGQ0NC00OTg5LTk0MGYtOGQwMmEyMTNhY2EyIiwiZXhwIjoxNjYyMTA0NjU2fQ.0SOSQ7B0ml8cYe16X_-9FvyPc7u1cKafxAgQlgZGTxQ'
+
+        darbyToken = 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI2NzQ4OTgwMi01ZTkzLTRlNWUtYTliZi1kMGUwOTdmYWUwYTMiLCJpYXQiOjE2NjI0NTQyMDMsImlzcyI6ImRhcmJ5IiwiYXVkIjoiYjQ5OTUxZTAtNTZmNi00ZDMwLWFlNjMtYWNhYmI1MDg4NmFlIiwiZiI6ImthbGlyYWoiLCJsIjoiciIsInQiOiJTVUJfVVNFUiIsImNpZCI6NiwiYSI6WyJERV8xIiwiREJfMSIsIlJQXzEiLCJBTF8xIiwiQURfMSIsIkxJXzEiLCJBUFJMMV8xIiwiVFJfMSIsIkFQXzEyIiwiRFRfMSIsIk9UXzEiXSwiciI6IjMzYTRkMDAyLTM1MTktNGFhNy05MTM2LWQ0OGM4YTMyYWI4ZiIsImNkIjoiZDY5YjA2MTAtYTAxNy00NDU1LWEzNjMtOTkzZDZhMjRiMGI3IiwiZXhwIjoxNjkzOTkwMjAzfQ.5Qs_B2xtR9exBIoJdxFUKVV6aqGNTM1-GvoUuVv7fAQ'
+        # darbyToken = getDarbyToken('alApiUser', '1234567890-alApiUser')
+        date_data = data[['TimestampLocal']]
+        timestamp = data._get_value(sln - 500, 'TimestampLocal')
+        start_date = timestamp[0:10]
+        i = 0
+
+        year = int(start_date[6:10])
+        date = int(start_date[:2])
+        month = int(start_date[3:5])
+        print(year, date, month)
+        #
+        stime = datetime.datetime(year, month, date, hour=00, minute=0).timestamp()
+        etime = stime + 86400
+        stime = int(stime * 1000)
+        etime = int(etime * 1000)
+        txt1 = txt2 = []
+
+        url = 'https://al-apigateway.drivewithdarby.com/v1/reports/6c2bcad1-c013-4f24-b92f-6f82629f8cfe/generate?startTime=' + '{}'.format(
+            stime) + '&endTime=' + '{}'.format(etime) + '&page=0&deviceId=' + '{}'.format(deviceid)
+
+        url2 = 'https://al-apigateway.drivewithdarby.com/v1/reports/6c2bcad1-c013-4f24-b92f-6f82629f8cfd/generate?startTime=' + '{}'.format(
+            stime) + '&endTime=' + '{}'.format(etime) + '&page=0&deviceId=' + '{}'.format(deviceid)
+
+        headers = {'authorization': darbyToken}
+        r = requests.get(url, headers=headers)
+        txt = r.json()
+        txt1 = pd.json_normalize(txt)
+        r1 = requests.get(url2, headers=headers)
+        txt2 = r1.json()
+        txt2 = pd.json_normalize(txt2)
+        txt2.to_csv('txt2.csv')
+
+        emp = txt1.empty
+        txt1.to_csv('txt1.csv')
+        csv = pd.read_csv('txt1.csv')
+
+        # if emp == False:
+        #
+        #     txt1 = txt1.drop_duplicates(subset='spnAndFmi')
+        #
+        #     spn = txt1[['spn']]
+        #     sh = txt1.shape[0]
+        #     col = txt1.shape[1]
+        #     tc = sh - 8
+        #
+        #     if col < 9:
+        #         txt1['Pcode'] = pd.DataFrame(columns=['Pcode'])
+        #         txt1['Description'] = pd.DataFrame(columns=['Description'])
+        #     txt2 = []
+        #     txt1 = txt1.fillna('-')
+        #     if sh > 8:
+        #         txt2 = txt1.tail(tc)
+        #         spn2 = txt2[['spn']]
+        #
+        #     pdf.set_xy(50, 50)
+        #     y = 45
+        #     i = 0
+        #     pdf.set_font_size(10)
+        #     pdf.set_fill_color(240, 128, 128)
+        #     pdf.set_xy(25, 35)
+        #     pdf.cell(45, 10, 'ECU', 1, 1, 'C', True)
+        #     pdf.set_xy(70, 35)
+        #     pdf.cell(25, 10, 'SPN', 1, 1, 'C', True)
+        #     pdf.set_xy(95, 35)
+        #     pdf.cell(25, 10, 'FMI', 1, 1, 'C', True)
+        #     pdf.set_xy(120, 35)
+        #     pdf.cell(30, 10, 'P-CODE', 1, 1, 'C', True)
+        #     pdf.set_xy(150, 35)
+        #     pdf.cell(125, 10, 'DESCRIPTION', 1, 1, 'C', True)
+        #
+        #     for value in spn.spn:
+        #         if i < 8:
+        #             pdf.set_xy(25, y)
+        #             pdf.cell(45, 15, '{}'.format(txt1.iat[i, 7]), 1, 1, 'C')
+        #             pdf.set_xy(70, y)
+        #             pdf.cell(25, 15, '{}'.format(txt1.iat[i, 3]), 1, 1, 'C')
+        #             pdf.set_xy(95, y)
+        #             pdf.cell(25, 15, '{}'.format(txt1.iat[i, 0]), 1, 1, 'C')
+        #             pdf.set_xy(120, y)
+        #             pdf.cell(30, 15, '{}'.format(txt1.iat[i, 8]), 1, 1, 'C')
+        #             pdf.set_xy(150, y)
+        #             pdf.multi_cell(125, 15, '{}'.format(txt1.iat[i, 9]), 1, 1, 'C')
+        #             y = y + 15
+        #             i = i + 1
+        #
+        #     if i > 7 and len(txt2) > 0:
+        #         pdf.add_page()
+        #         pdf.set_xy(0, 0)
+        #         pdf.image('allogo.jpg', 0, 0, 50, 20)
+        #         pdf.set_fill_color(105, 105, 105)
+        #         pdf.set_xy(0, 21)
+        #         pdf.cell(297, 10, '', 0, 1, 'C', True)
+        #         pdf.set_xy(0, 203)
+        #         pdf.cell(297, 7, '', 0, 1, 'C', True)
+        #         pdf.set_text_color(255, 255, 255)
+        #         pdf.set_font_size(12)
+        #         pdf.set_xy(275, 204)
+        #         pno = pdf.page_no()
+        #         pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+        #         pdf.set_text_color(47, 79, 79)
+        #         pdf.set_xy(100, 10)
+        #         pdf.set_font_size(18)
+        #         pdf.cell(115, 10, 'FAULT CODES LOGGED', 0, 1, 'C')
+        #
+        #         pdf.set_font_size(10)
+        #         pdf.set_fill_color(240, 128, 128)
+        #         pdf.set_xy(25, 35)
+        #         pdf.cell(45, 10, 'ECU', 1, 1, 'C', True)
+        #         pdf.set_xy(70, 35)
+        #         pdf.cell(25, 10, 'SPN', 1, 1, 'C', True)
+        #         pdf.set_xy(95, 35)
+        #         pdf.cell(25, 10, 'FMI', 1, 1, 'C', True)
+        #         pdf.set_xy(120, 35)
+        #         pdf.cell(30, 10, 'P-CODE', 1, 1, 'C', True)
+        #         pdf.set_xy(150, 35)
+        #         pdf.cell(125, 10, 'DESCRIPTION', 1, 1, 'C', True)
+        #         y = 45
+        #
+        #         for value in spn2.spn:
+        #             pdf.set_xy(25, y)
+        #             pdf.cell(45, 15, '{}'.format(txt1.iat[i, 7]), 1, 1, 'C')
+        #             pdf.set_xy(70, y)
+        #             pdf.cell(25, 15, '{}'.format(txt1.iat[i, 3]), 1, 1, 'C')
+        #             pdf.set_xy(95, y)
+        #             pdf.cell(25, 15, '{}'.format(txt1.iat[i, 0]), 1, 1, 'C')
+        #             pdf.set_xy(120, y)
+        #             pdf.cell(30, 15, '{}'.format(txt1.iat[i, 8]), 1, 1, 'C')
+        #             pdf.set_xy(150, y)
+        #             pdf.multi_cell(125, 15, '{}'.format(txt1.iat[i, 9]), 1, 1, 'C')
+        #             y = y + 15
+        #             i = i + 1
+        #
+        #     y = 30
+        #     i = 0
+        if emp == False:
+            diag = pd.read_csv('txt2.csv')
+            fdiag = diag.ecuName.isin(['Engine ECU', 'ACU'])
+            diag = diag[fdiag]
+            xx = txt1.shape
+            xx = xx[1]
+            if xx < 9:
+                csv['errorCode'] = ''
+                csv['description'] = ''
+                csv['severity'] = ''
+            active = pd.DataFrame(columns=['active'])
+            inactive = pd.DataFrame(columns=['inactive'])
+            time = pd.to_datetime(csv['eventTime'], format='%Y-%m-%dT%H:%M:%SZ')
+            delta = timedelta(hours=5.5)
+            dobj1 = time + delta
+            csv['time'] = dobj1
+            csv2 = csv.ecuName.isin(['Engine ECU', 'ACU'])
+            csv1 = csv[csv2]
+            cs1 = csv1.sort_values(by='time', ascending=False)
+            spn = cs1[['spnAndFmi']].drop_duplicates()
+            spn = pd.Series(spn.spnAndFmi)
+
+            for value in spn:
+                cs2 = cs1[cs1.spnAndFmi == value]
+                if cs2.iat[0, 6] == 'DM1_ALERT_CLOSED':
+                    inactive = inactive.append({'inactive': value}, ignore_index=True)
+                else:
+                    active = active.append({'active': value}, ignore_index=True)
+
+            csv1 = csv1[csv1.messageType == 'DM1_ALERT_OPEN'].drop_duplicates(subset=['spnAndFmi', 'occurrenceCount'])
+
+            diag1 = diag[diag.active == 'Active']
+            diag2 = diag[diag.active == 'Inactive']
+            xa = diag1.shape
+            xa = xa[0]
+            tac = xa - 5
+            xi = diag2.shape
+            xi = xi[0]
+            tic = xi - 5
+
+            active1 = diag1[5:]
+            inactive1 = diag2[5:]
+
+            pdf.add_page()
+            pdf.set_xy(0, 0)
+            pdf.image('allogo.jpg', 0, 0, 50, 20)
+            pdf.set_fill_color(105, 105, 105)
+            pdf.set_xy(0, 21)
+            pdf.cell(297, 10, '', 0, 1, 'C', True)
+            pdf.set_xy(0, 203)
+            pdf.cell(297, 7, '', 0, 1, 'C', True)
+            pdf.set_text_color(255, 255, 255)
+            pdf.set_font_size(12)
+            pdf.set_xy(275, 204)
+            pno = pdf.page_no()
+            pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+            pdf.set_text_color(47, 79, 79)
+            pdf.set_xy(100, 10)
+            pdf.set_font_size(18)
+            pdf.cell(115, 10, 'FAULT CODES LOGGED', 0, 1, 'C')
+
+            pdf.set_font_size(10)
+            pdf.set_xy(140, 35)
+            pdf.set_text_color(255, 0, 0)
+            pdf.cell(75, 10, 'ACTIVE ERROR CODES')
+            pdf.set_fill_color(240, 128, 128)
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_xy(30, 45)
+            pdf.cell(20, 10, 'ECU', 1, 1, 'C', True)
+            pdf.set_xy(50, 45)
+            pdf.cell(25, 10, 'SPN', 1, 1, 'C', True)
+            pdf.set_xy(75, 45)
+            pdf.cell(15, 10, 'FMI', 1, 1, 'C', True)
+            pdf.set_xy(90, 45)
+            pdf.cell(20, 10, 'P-CODE', 1, 1, 'C', True)
+            pdf.set_xy(110, 45)
+            pdf.cell(120, 10, 'DESCRIPTION', 1, 1, 'C', True)
+            pdf.set_xy(230, 45)
+            pdf.set_font_size(5)
+            pdf.multi_cell(20, 5, 'OCCURANCE COUNT', 0, 'C', True)
+            pdf.set_xy(230, 45)
+            pdf.cell(20, 10, '', 1)
+            pdf.set_xy(250, 45)
+            pdf.set_font_size(8)
+            pdf.cell(30, 10, 'TIMESTAMP', 1, 1, 'C', True)
+            y = 55
+            i = 0
+            for value in diag1.spnAndFmi:
+                if i < 5:
+                    temp1 = csv1[csv1.spnAndFmi == value]
+                    pdf.set_xy(30, y)
+                    pdf.cell(20, 10, '{}'.format(temp1.iat[0, 23]), 1, 1, 'C')
+                    pdf.set_xy(50, y)
+                    pdf.cell(25, 10, '{}'.format(temp1.iat[0, 12]), 1, 1, 'C')
+                    pdf.set_xy(75, y)
+                    pdf.cell(15, 10, '{}'.format(temp1.iat[0, 2]), 1, 1, 'C')
+                    pdf.set_xy(90, y)
+                    pdf.cell(20, 10, '{}'.format(temp1.iat[0, 24]), 1, 1, 'C')
+                    pdf.set_xy(110, y)
+                    pdf.multi_cell(120, 5, '{}'.format(temp1.iat[0, 25]), 0, 'C')
+                    pdf.set_xy(110, y)
+                    pdf.cell(120, 10, "", 1)
+                    pdf.set_xy(230, y)
+                    pdf.cell(20, 10, '{}'.format(temp1.iat[0, 7]), 1, 1, 'C')
+                    pdf.set_xy(250, y)
+                    pdf.cell(30, 10, '{}'.format(temp1.iat[0, 14]), 1, 1, 'C')
+                    y = y + 10
+                    i = i + 1
+
+            pdf.set_xy(140, 110)
+            pdf.set_font_size(10)
+            pdf.set_text_color(0, 0, 255)
+            pdf.cell(75, 10, 'INACTIVE ERROR CODES')
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font_size(8)
+            pdf.set_fill_color(240, 128, 128)
+            pdf.set_xy(30, 120)
+            pdf.cell(20, 10, 'ECU', 1, 1, 'C', True)
+            pdf.set_xy(50, 120)
+            pdf.cell(25, 10, 'SPN', 1, 1, 'C', True)
+            pdf.set_xy(75, 120)
+            pdf.cell(15, 10, 'FMI', 1, 1, 'C', True)
+            pdf.set_xy(90, 120)
+            pdf.cell(20, 10, 'P-CODE', 1, 1, 'C', True)
+            pdf.set_xy(110, 120)
+            pdf.cell(120, 10, 'DESCRIPTION', 1, 1, 'C', True)
+            pdf.set_xy(230, 120)
+            pdf.set_font_size(5)
+            pdf.multi_cell(20, 5, 'OCCURANCE COUNT', 0, 'C', True)
+            pdf.set_xy(230, 120)
+            pdf.cell(20, 10, '', 1)
+            pdf.set_xy(250, 120)
+            pdf.set_font_size(8)
+            pdf.cell(30, 10, 'TIMESTAMP', 1, 1, 'C', True)
+            y = 130
+            i = 0
+
+            for value in diag2.spnAndFmi:
+                if i < 5:
+                    temp1 = csv1[csv1.spnAndFmi == value]
+                    pdf.set_xy(30, y)
+                    pdf.cell(20, 10, '{}'.format(temp1.iat[0, 23]), 1, 1, 'C')
+                    pdf.set_xy(50, y)
+                    pdf.cell(25, 10, '{}'.format(temp1.iat[0, 12]), 1, 1, 'C')
+                    pdf.set_xy(75, y)
+                    pdf.cell(15, 10, '{}'.format(temp1.iat[0, 2]), 1, 1, 'C')
+                    pdf.set_xy(90, y)
+                    pdf.cell(20, 10, '{}'.format(temp1.iat[0, 24]), 1, 1, 'C')
+                    pdf.set_xy(110, y)
+                    pdf.multi_cell(120, 5, '{}'.format(temp1.iat[0, 25]), 0, 'C')
+                    pdf.set_xy(110, y)
+                    pdf.cell(120, 10, "", 1)
+                    pdf.set_xy(230, y)
+                    pdf.cell(20, 10, '{}'.format(temp1.iat[0, 7]), 1, 1, 'C')
+                    pdf.set_xy(250, y)
+                    pdf.cell(30, 10, '{}'.format(temp1.iat[0, 14]), 1, 1, 'C')
+                    y = y + 10
+                    i = i + 1
+            if tac > 0 or tic > 0:
+                pdf.add_page()
+                pdf.set_xy(0, 0)
+                pdf.image('allogo.jpg', 0, 0, 50, 20)
+                pdf.set_fill_color(105, 105, 105)
+                pdf.set_xy(0, 21)
+                pdf.cell(297, 10, '', 0, 1, 'C', True)
+                pdf.set_xy(0, 203)
+                pdf.cell(297, 7, '', 0, 1, 'C', True)
+                pdf.set_text_color(255, 255, 255)
+                pdf.set_font_size(12)
+                pdf.set_xy(275, 204)
+                pno = pdf.page_no()
+                pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+                pdf.set_text_color(47, 79, 79)
+                pdf.set_xy(100, 10)
+                pdf.set_font_size(18)
+                pdf.cell(115, 10, 'FAULT CODES LOGGED', 0, 1, 'C')
+
+                pdf.set_xy(50, 50)
+                pdf.set_font_size(10)
+                pdf.set_xy(140, 35)
+                pdf.set_text_color(255, 0, 0)
+                pdf.cell(75, 10, 'ACTIVE ERROR CODES')
+                pdf.set_fill_color(240, 128, 128)
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_xy(30, 45)
+                pdf.cell(20, 10, 'ECU', 1, 1, 'C', True)
+                pdf.set_xy(50, 45)
+                pdf.cell(25, 10, 'SPN', 1, 1, 'C', True)
+                pdf.set_xy(75, 45)
+                pdf.cell(15, 10, 'FMI', 1, 1, 'C', True)
+                pdf.set_xy(90, 45)
+                pdf.cell(20, 10, 'P-CODE', 1, 1, 'C', True)
+                pdf.set_xy(110, 45)
+                pdf.cell(120, 10, 'DESCRIPTION', 1, 1, 'C', True)
+                pdf.set_xy(230, 45)
+                pdf.set_font_size(5)
+                pdf.multi_cell(20, 5, 'OCCURANCE COUNT', 0, 'C', True)
+                pdf.set_xy(230, 45)
+                pdf.cell(20, 10, '', 1)
+                pdf.set_xy(250, 45)
+                pdf.set_font_size(8)
+                pdf.cell(30, 10, 'TIMESTAMP', 1, 1, 'C', True)
+                y = 55
+                i = 0
+                for value in active1.spnAndFmi:
+                    if i < 5:
+                        temp1 = csv1[csv1.spnAndFmi == value]
+                        pdf.set_xy(30, y)
+                        pdf.cell(20, 10, '{}'.format(temp1.iat[0, 23]), 1, 1, 'C')
+                        pdf.set_xy(50, y)
+                        pdf.cell(25, 10, '{}'.format(temp1.iat[0, 12]), 1, 1, 'C')
+                        pdf.set_xy(75, y)
+                        pdf.cell(15, 10, '{}'.format(temp1.iat[0, 2]), 1, 1, 'C')
+                        pdf.set_xy(90, y)
+                        pdf.cell(20, 10, '{}'.format(temp1.iat[0, 24]), 1, 1, 'C')
+                        pdf.set_xy(110, y)
+                        pdf.multi_cell(120, 5, '{}'.format(temp1.iat[0, 25]), 0, 'C')
+                        pdf.set_xy(110, y)
+                        pdf.cell(120, 10, "", 1)
+                        pdf.set_xy(230, y)
+                        pdf.cell(20, 10, '{}'.format(temp1.iat[0, 7]), 1, 1, 'C')
+                        pdf.set_xy(250, y)
+                        pdf.cell(30, 10, '{}'.format(temp1.iat[0, 14]), 1, 1, 'C')
+                        y = y + 10
+                        i = i + 1
+
+                pdf.set_xy(140, 110)
+                pdf.set_text_color(0, 0, 255)
+                pdf.cell(75, 10, 'INACTIVE ERROR CODES')
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_fill_color(240, 128, 128)
+                pdf.set_xy(30, 120)
+                pdf.cell(20, 10, 'ECU', 1, 1, 'C', True)
+                pdf.set_xy(50, 120)
+                pdf.cell(25, 10, 'SPN', 1, 1, 'C', True)
+                pdf.set_xy(75, 120)
+                pdf.cell(15, 10, 'FMI', 1, 1, 'C', True)
+                pdf.set_xy(90, 120)
+                pdf.cell(20, 10, 'P-CODE', 1, 1, 'C', True)
+                pdf.set_xy(110, 120)
+                pdf.cell(120, 10, 'DESCRIPTION', 1, 1, 'C', True)
+                pdf.set_xy(230, 120)
+                pdf.set_font_size(5)
+                pdf.multi_cell(20, 5, 'OCCURANCE COUNT', 0, 'C', True)
+                pdf.set_xy(230, 120)
+                pdf.cell(20, 10, '', 1)
+                pdf.set_xy(250, 120)
+                pdf.set_font_size(8)
+                pdf.cell(30, 10, 'TIMESTAMP', 1, 1, 'C', True)
+                y = 130
+                i = 0
+
+                for value in inactive1.spnAndFmi:
+                    if i < 5:
+                        temp1 = csv1[csv1.spnAndFmi == value]
+                        pdf.set_xy(30, y)
+                        pdf.cell(20, 10, '{}'.format(temp1.iat[0, 23]), 1, 1, 'C')
+                        pdf.set_xy(50, y)
+                        pdf.cell(25, 10, '{}'.format(temp1.iat[0, 12]), 1, 1, 'C')
+                        pdf.set_xy(75, y)
+                        pdf.cell(15, 10, '{}'.format(temp1.iat[0, 2]), 1, 1, 'C')
+                        pdf.set_xy(90, y)
+                        pdf.cell(20, 10, '{}'.format(temp1.iat[0, 24]), 1, 1, 'C')
+                        pdf.set_xy(110, y)
+                        pdf.multi_cell(120, 5, '{}'.format(temp1.iat[0, 25]), 0, 'C')
+                        pdf.set_xy(110, y)
+                        pdf.cell(120, 10, "", 1)
+                        pdf.set_xy(230, y)
+                        pdf.cell(20, 10, '{}'.format(temp1.iat[0, 7]), 1, 1, 'C')
+                        pdf.set_xy(250, y)
+                        pdf.cell(30, 10, '{}'.format(temp1.iat[0, 14]), 1, 1, 'C')
+                        y = y + 10
+                        i = i + 1
+        if emp == True:
+            pdf.add_page()
+            pdf.set_xy(0, 0)
+            pdf.image('allogo.jpg', 0, 0, 50, 20)
+            pdf.set_fill_color(105, 105, 105)
+            pdf.set_xy(0, 21)
+            pdf.cell(297, 10, '', 0, 1, 'C', True)
+            pdf.set_xy(0, 203)
+            pdf.cell(297, 7, '', 0, 1, 'C', True)
+            pdf.set_text_color(255, 255, 255)
+            pdf.set_font_size(12)
+            pdf.set_xy(275, 204)
+            pno = pdf.page_no()
+            pdf.cell(25, 5, 'page - ' + '{}'.format(pno), 0, 1, 'C')
+            pdf.set_text_color(47, 79, 79)
+            pdf.set_xy(100, 10)
+            pdf.set_font_size(18)
+            pdf.cell(115, 10, 'FAULT CODES LOGGED', 0, 1, 'C')
+            pdf.set_xy(120, 100)
+            pdf.cell(15, 15, 'NO FAULTS LOGGED')
+
+        plt.clf()
+
+        i = 0
+        P_RGN_TIME = pd.DataFrame(columns=['pending_RGN_TIME(mins)'])
+        P_Cum_Cons = pd.DataFrame(columns=['pending_rgn_cons'])
+
+        summary = summary.append(
+            {'vname': vname, 'kmcov': km_cov, 'fuelcons': ecufuel, 'adblue/fuelcons': adblue_per, 'kmpl': kmpl1,
+             'eng_hrs': espeed, 'app': app}, ignore_index=True)
+
+        filename = 'D:/alb_output/' + '{}'.format(vname) + '_' + '{}'.format(start_date) + '.pdf'
+        #
+        pdf.output(filename, 'F')
+
+    except:
+        continue
+    #
+pdf.close()
+
+pdf = FPDF('L', 'mm', 'A4')
+pdf.set_margins(0, 0, 210)
+pdf.set_font('Arial', 'B', 16)
+pdf.set_auto_page_break(0, margin=210)
+pdf.add_page()
+pdf.set_xy(0, 0)
+pdf.image('allogo.jpg', 0, 0, 50, 20)
+pdf.set_xy(100, 10)
+pdf.set_font_size(18)
+pdf.set_text_color(47, 79, 79)
+pdf.cell(115, 10, 'H6 2V ON ROAD VEHICLES SUMMARY', 0, 1, 'C')
+pdf.set_xy(0, 0)
+# fill rect color
+pdf.set_fill_color(105, 105, 105)
+pdf.set_xy(0, 21)
+pdf.cell(297, 10, '', 0, 1, 'C', True)
+pdf.set_xy(0, 203)
+pdf.cell(297, 7, '', 0, 1, 'C', True)
+pdf.set_text_color(255, 255, 255)
+pdf.set_font_size(12)
+pdf.set_xy(260, 24)
+pdf.cell(25, 5, 'Date:' + '{}'.format(start_date), 0, 1, 'C')
+
+
+pdf.set_font_size(10)
+pdf.set_xy(40,50)
+pdf.set_fill_color(95, 158, 160)
+
+pdf.cell(35, 10, 'VEHICLE NAME', 1, 1, 'C',True)
+pdf.set_xy(75,50)
+pdf.cell(35, 10, 'VEHICLE MODEL', 1, 1, 'C',True)
+pdf.set_xy(110,50)
+pdf.cell(30, 10, 'TRIP ENG HRS', 1, 1, 'C',True)
+pdf.set_xy(140,50)
+pdf.cell(30, 10, 'TRIP DISTANCE', 1, 1, 'C',True)
+pdf.set_xy(170,50)
+pdf.cell(40, 10, 'FUEL CONSUMPTION', 1, 1, 'C',True)
+pdf.set_xy(210,50)
+pdf.cell(25, 10, ' MILEAGE', 1, 1, 'C',True)
+pdf.set_xy(235,50)
+pdf.set_font_size(8)
+pdf.cell(25, 10, 'ADBLUE/FUEL (%)', 1, 1, 'C',True)
+
+# pdf.set_xy(250,50)
+# pdf.cell(25, 10, 'TOTAL REGN', 1, 1, 'C',True)
+
+pdf.set_text_color(0, 0, 0)
+pdf.set_font_size(10)
+x = 40
+y = 60
+i = 0
+
+for value in summary.vname:
+    pdf.set_xy(x, y)
+    pdf.cell(35, 10, '{}'.format(summary.iat[i, 0]), 1, 1, 'C')
+    x=x+35
+    pdf.set_xy(x, y)
+    pdf.cell(35, 10, '{}'.format(summary.iat[i,5]), 1, 1, 'C')
+    x=x+35
+    pdf.set_xy(x, y)
+    pdf.cell(30, 10, '{}'.format(summary.iat[i,6]), 1, 1, 'C')
+    x=x+30
+    pdf.set_xy(x, y)
+    pdf.cell(30, 10, '{}'.format(summary.iat[i,1]), 1, 1, 'C')
+    x=x+30
+    pdf.set_xy(x, y)
+    pdf.cell(40, 10, '{}'.format(summary.iat[i,2]), 1, 1, 'C')
+    x=x+40
+    pdf.set_xy(x, y)
+    pdf.cell(25, 10, '{}'.format(summary.iat[i,3]), 1, 1, 'C')
+    x=x+25
+    pdf.set_xy(x, y)
+    pdf.cell(25, 10, '{}'.format(summary.iat[i,4]), 1, 1, 'C')
+    x=x+25
+#     pdf.set_xy(x, y)
+#     pdf.cell(25, 10, '{}'.format(summary.iat[i,7]), 1, 1, 'C')
+#
+    y=y+10
+    x=40
+    i=i+1
+
+summary.to_csv('alb_summary.csv')
+
+filename1 = 'D:/alb_output/' + 'Trip_Summary_' + '{}'.format(start_date) + '.pdf'
+pdf.output(filename1,'F')
